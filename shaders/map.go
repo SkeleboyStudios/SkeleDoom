@@ -103,7 +103,7 @@ func (l *mapShader) Pre() {
 	engo.Gl.BlendFunc(engo.Gl.SRC_ALPHA, engo.Gl.ONE_MINUS_SRC_ALPHA)
 
 	//scissor!
-	engo.Gl.Scissor(15*int(engo.CanvasWidth()/engo.GameWidth()), 15*int(engo.CanvasWidth()/engo.GameWidth()), 182*int(engo.CanvasWidth()/engo.GameWidth()), 98*int(engo.CanvasHeight()/engo.GameHeight()))
+	engo.Gl.Scissor(50*int(engo.CanvasWidth()/engo.GameWidth()), 27*int(engo.CanvasWidth()/engo.GameWidth()), 163*int(engo.CanvasWidth()/engo.GameWidth()), 92*int(engo.CanvasHeight()/engo.GameHeight()))
 	engo.Gl.Enable(engo.Gl.SCISSOR_TEST)
 
 	// Bind shader and buffer, enable attributes

@@ -17,7 +17,11 @@ type StartScene struct{}
 func (s *StartScene) Type() string { return StartSceneTypeString }
 
 func (s *StartScene) Preload() {
+	engo.Files.Load("ui/statsborder.png")
+	engo.Files.Load("ui/bomb.png")
+	engo.Files.Load("ui/hands.png")
 	common.AddShader(shaders.MapShader)
+	common.AddShader(shaders.ViewShader)
 	engo.Input.RegisterButton("up", engo.KeyW, engo.KeyArrowUp)
 	engo.Input.RegisterButton("down", engo.KeyS, engo.KeyArrowDown)
 	engo.Input.RegisterButton("left", engo.KeyA, engo.KeyArrowLeft)
@@ -38,10 +42,19 @@ func (s *StartScene) Setup(u engo.Updater) {
 	var notanimatable *common.NotAnimationable
 	w.AddSystemInterface(&common.AnimationSystem{}, animatable, notanimatable)
 
+	var collisionable *common.Collisionable
+	var notcollisionable *common.NotCollisionable
+	w.AddSystemInterface(&common.CollisionSystem{Solids: systems.CollisionGroupPlaya}, collisionable, notcollisionable)
+
 	var playermapable *systems.PlayerMapAble
 	var wallmapable *systems.WallMapAble
 	var notmapable *systems.NotMapAble
 	w.AddSystemInterface(&systems.MapSystem{}, []interface{}{playermapable, wallmapable}, notmapable)
+
+	var playerviewable *systems.ViewPlayerAble
+	var wallviewable *systems.ViewWallAble
+	var notviewable *systems.NotViewAble
+	w.AddSystemInterface(&systems.ViewSystem{}, []interface{}{playerviewable, wallviewable}, notviewable)
 
 	var controlable *systems.ControlAble
 	w.AddSystemInterface(&systems.ControlSystem{}, controlable, nil)
@@ -49,6 +62,7 @@ func (s *StartScene) Setup(u engo.Updater) {
 	p := player{BasicEntity: ecs.NewBasic()}
 	p.Speed = 150
 	p.RotSpeed = 25
+	p.Height = 20
 	w.AddEntity(&p)
 
 	wall1 := wall{BasicEntity: ecs.NewBasic()}
@@ -63,19 +77,19 @@ func (s *StartScene) Setup(u engo.Updater) {
 		P1: engo.Point{X: 15, Y: 15},
 		P2: engo.Point{X: 200, Y: 250},
 	}
-	w.AddEntity(&wall2)
+	//w.AddEntity(&wall2)
 
 	wall3 := wall{BasicEntity: ecs.NewBasic()}
 	wall3.Wall = engo.Line{
 		P1: engo.Point{X: 150, Y: 50},
 		P2: engo.Point{X: 250, Y: -25},
 	}
-	w.AddEntity(&wall3)
+	//w.AddEntity(&wall3)
 
 	wall4 := wall{BasicEntity: ecs.NewBasic()}
 	wall4.Wall = engo.Line{
 		P1: engo.Point{X: 150, Y: 50},
 		P2: engo.Point{X: 150, Y: -25},
 	}
-	w.AddEntity(&wall4)
+	//w.AddEntity(&wall4)
 }

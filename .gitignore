@@ -1,0 +1,2 @@
+# Assets to keep big redundant files out of repo
+assets/*

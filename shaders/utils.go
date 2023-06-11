@@ -1,14 +1,34 @@
 package shaders
 
 import (
+	"github.com/EngoEngine/engo"
+	"github.com/EngoEngine/gl"
+
 	"image/color"
 	"log"
 	"math"
 )
 
 var (
-	MapShader = &mapShader{cameraEnabled: true}
+	MapShader  = &mapShader{cameraEnabled: true}
+	ViewShader = &viewShader{}
 )
+
+type Wall struct {
+	Line engo.Line
+	Tex  *gl.Texture
+	H    float32
+}
+
+func (w Wall) Texture() *gl.Texture { return w.Tex }
+
+func (Wall) Width() float32 { return 0 }
+
+func (w Wall) Height() float32 { return w.H }
+
+func (Wall) View() (float32, float32, float32, float32) { return 0, 0, 1, 1 }
+
+func (Wall) Close() {}
 
 func setBufferValue(buffer []float32, index int, value float32, changed *bool) {
 	if buffer[index] != value {

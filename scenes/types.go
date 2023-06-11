@@ -18,6 +18,7 @@ type wall struct {
 
 	common.SpaceComponent
 	systems.WallMapComponent
+	systems.ViewWallComponent
 }
 
 type player struct {
@@ -26,4 +27,5 @@ type player struct {
 	common.SpaceComponent
 	systems.PlayerMapComponent
 	systems.ControlComponent
+	systems.ViewPlayerComponent
 }
