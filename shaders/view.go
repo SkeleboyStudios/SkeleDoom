@@ -30,6 +30,7 @@ type viewShader struct {
 	player       *common.SpaceComponent
 	playerOffset engo.Point
 	fov          float32
+	y0, y1, y2   float32
 }
 
 func (s *viewShader) Setup(w *ecs.World) error {
@@ -167,23 +168,90 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		x0 := (p1X*cos - p1Y*sin)
 		y0 := (p1Y*cos + p1X*sin)
 		z0 := -1 * s.player.Height
-		wx0 := ((x0 * s.fov / y0) + engo.GameWidth()/2) * engo.GetGlobalScale().X
-		wy0 := ((z0 * s.fov / y0) + engo.GameHeight()/2) * engo.GetGlobalScale().Y
 		x1 := (p2X*cos - p2Y*sin)
 		y1 := (p2Y*cos + p2X*sin)
 		z1 := -1 * s.player.Height
-		wx1 := ((x1 * s.fov / y1) + engo.GameWidth()/2) * engo.GetGlobalScale().X
-		wy1 := ((z1 * s.fov / y1) + engo.GameHeight()/2) * engo.GetGlobalScale().Y
 		x2 := x0
 		y2 := y0
 		z2 := -1*s.player.Height + d.H
-		wx2 := ((x2 * s.fov / y2) + engo.GameWidth()/2) * engo.GetGlobalScale().X
-		wy2 := ((z2 * s.fov / y2) + engo.GameHeight()/2) * engo.GetGlobalScale().Y
 		x3 := x1
 		y3 := y1
 		z3 := -1*s.player.Height + d.H
-		wx3 := ((x3 * s.fov / y3) + engo.GameWidth()/2) * engo.GetGlobalScale().X
-		wy3 := ((z3 * s.fov / y3) + engo.GameHeight()/2) * engo.GetGlobalScale().Y
+
+		s.y0 = y0
+		s.y1 = y1
+
+		//clipping
+		if y0 < 0 {
+			x0, y0, z0 = clipBehindPlayer(x0, y0, z0, x1, y1, z1)
+			x2, y2, z2 = clipBehindPlayer(x2, y2, z2, x3, y3, z3)
+		}
+		if y1 < 0 {
+			x1, y1, z1 = clipBehindPlayer(x1, y1, z1, x0, y0, z0)
+			x3, y3, z3 = clipBehindPlayer(x3, y3, z3, x2, y2, z2)
+		}
+
+		wx0 := ((x0 * s.fov / y0) + engo.GameWidth()/2)
+		wy0 := ((z0 * s.fov / y0) + engo.GameHeight()/2)
+		wx1 := ((x1 * s.fov / y1) + engo.GameWidth()/2)
+		wy1 := ((z1 * s.fov / y1) + engo.GameHeight()/2)
+		wx2 := ((x2 * s.fov / y2) + engo.GameWidth()/2)
+		wy2 := ((z2 * s.fov / y2) + engo.GameHeight()/2)
+		wx3 := ((x3 * s.fov / y3) + engo.GameWidth()/2)
+		wy3 := ((z3 * s.fov / y3) + engo.GameHeight()/2)
+
+		if wx0 < 0 {
+			wx0 = 0
+		}
+		if wx1 < 0 {
+			wx1 = 0
+		}
+		if wx2 < 0 {
+			wx2 = 0
+		}
+		if wx3 < 0 {
+			wx3 = 0
+		}
+		if wy0 < 0 {
+			wy0 = 0
+		}
+		if wy1 < 0 {
+			wy1 = 0
+		}
+		if wy2 < 0 {
+			wy2 = 0
+		}
+		if wy3 < 0 {
+			wy3 = 0
+		}
+		w := engo.GameWidth()
+		h := engo.GameHeight()
+		if wx0 > w {
+			wx0 = w
+		}
+		if wx1 > w {
+			wx1 = w
+		}
+		if wx2 > w {
+			wx2 = w
+		}
+		if wx3 > w {
+			wx3 = w
+		}
+		if wy0 > h {
+			wy0 = h
+		}
+		if wy1 > h {
+			wy1 = h
+		}
+		if wy2 > h {
+			wy2 = h
+		}
+		if wy3 > h {
+			wy3 = h
+		}
+
+		println(s.player.Rotation)
 
 		setBufferValue(buffer, 0, wx0, &changed)
 		setBufferValue(buffer, 1, wy0, &changed)
@@ -215,7 +283,14 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 	return changed
 }
 
-func (s *viewShader) Draw(ren *common.RenderComponent, space *common.SpaceComponent) {
+func (s *viewShader) PrepareCulling() {}
+
+func (s *viewShader) ShouldDraw(ren *common.RenderComponent, space *common.SpaceComponent) bool {
+	if s.player == nil {
+		return false
+	}
+	s.y0 = 0
+	s.y1 = 0
 	if s.lastBuffer != ren.Buffer || ren.Buffer == nil {
 		s.updateBuffer(ren, space)
 
@@ -226,6 +301,14 @@ func (s *viewShader) Draw(ren *common.RenderComponent, space *common.SpaceCompon
 		s.lastBuffer = ren.Buffer
 	}
 
+	if s.y0 < 0 && s.y1 < 0 {
+		return false
+	}
+
+	return true
+}
+
+func (s *viewShader) Draw(ren *common.RenderComponent, space *common.SpaceComponent) {
 	s.modelMatrix[0] = ren.Scale.X * engo.GetGlobalScale().X
 	s.modelMatrix[1] = 0
 	s.modelMatrix[3] = 0
