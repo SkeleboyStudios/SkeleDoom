@@ -104,6 +104,7 @@ func (s *MapSystem) New(w *ecs.World) {
 	}
 	s.boundingbox.SetShader(common.HUDShader)
 	s.boundingbox.SetZIndex(3)
+	s.boundingbox.Hidden = true
 	w.AddEntity(&s.boundingbox)
 }
 
@@ -120,6 +121,7 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 			Color:       color.RGBA{0xFF, 0x00, 0x00, 0xFF},
 			StartZIndex: 5,
 		}
+		s.player.Hidden = true
 		s.player.SetShader(shaders.MapShader)
 		s.player.CollisionComponent = &common.CollisionComponent{Main: CollisionGroupPlaya}
 		s.w.AddEntity(&s.player)
@@ -159,6 +161,7 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		}
 		wa.SetShader(shaders.MapShader)
 		wa.CollisionComponent = &common.CollisionComponent{Group: CollisionGroupPlaya}
+		wa.Hidden = true
 		s.w.AddEntity(&wa)
 		s.walls = append(s.walls, wa)
 	}

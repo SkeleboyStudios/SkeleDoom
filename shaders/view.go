@@ -1,6 +1,8 @@
 package shaders
 
 import (
+	"image/color"
+
 	"github.com/EngoEngine/ecs"
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/engo/common"
@@ -30,7 +32,6 @@ type viewShader struct {
 	player       *common.SpaceComponent
 	playerOffset engo.Point
 	fov          float32
-	y0, y1, y2   float32
 }
 
 func (s *viewShader) Setup(w *ecs.World) error {
@@ -155,6 +156,11 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 	var changed bool
 
 	tint := colorToFloat32(ren.Color)
+	tint1 := colorToFloat32(color.RGBA{255, 0, 0, 255})
+	tint2 := colorToFloat32(color.White)
+	tint3 := colorToFloat32(color.Black)
+	w := engo.GameWidth()
+	h := engo.GameHeight()
 
 	switch d := ren.Drawable.(type) {
 	case Wall:
@@ -178,54 +184,55 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		y3 := y1
 		z3 := -1*s.player.Height + d.H
 
-		s.y0 = y0
-		s.y1 = y1
-
-		//clipping
-		if y0 < 0 {
+		//clipping behind player
+		if y0 < 1 && y1 < 1 {
+			x0, y0, z0 = 0, 1, 0
+			x1, y1, z1 = 0, 1, 0
+			x2, y2, z2 = 0, 1, 0
+			x3, y3, z3 = 0, 1, 0
+		} else if y0 < 1 {
 			x0, y0, z0 = clipBehindPlayer(x0, y0, z0, x1, y1, z1)
 			x2, y2, z2 = clipBehindPlayer(x2, y2, z2, x3, y3, z3)
-		}
-		if y1 < 0 {
+		} else if y1 < 1 {
 			x1, y1, z1 = clipBehindPlayer(x1, y1, z1, x0, y0, z0)
 			x3, y3, z3 = clipBehindPlayer(x3, y3, z3, x2, y2, z2)
 		}
 
-		wx0 := ((x0 * s.fov / y0) + engo.GameWidth()/2)
-		wy0 := ((z0 * s.fov / y0) + engo.GameHeight()/2)
-		wx1 := ((x1 * s.fov / y1) + engo.GameWidth()/2)
-		wy1 := ((z1 * s.fov / y1) + engo.GameHeight()/2)
-		wx2 := ((x2 * s.fov / y2) + engo.GameWidth()/2)
-		wy2 := ((z2 * s.fov / y2) + engo.GameHeight()/2)
-		wx3 := ((x3 * s.fov / y3) + engo.GameWidth()/2)
-		wy3 := ((z3 * s.fov / y3) + engo.GameHeight()/2)
+		//convert to screen coordinates
+		wx0 := ((x0 * s.fov / y0) + w/2)
+		wy0 := ((z0 * s.fov / y0) + h/2)
+		wx1 := ((x1 * s.fov / y1) + w/2)
+		wy1 := ((z1 * s.fov / y1) + h/2)
+		wx2 := ((x2 * s.fov / y2) + w/2)
+		wy2 := ((z2 * s.fov / y2) + h/2)
+		wx3 := ((x3 * s.fov / y3) + w/2)
+		wy3 := ((z3 * s.fov / y3) + h/2)
 
-		if wx0 < 0 {
-			wx0 = 0
+		//clipping to screen
+		if wx0 < 10 {
+			wx0 = 10
 		}
-		if wx1 < 0 {
-			wx1 = 0
+		if wx1 < 10 {
+			wx1 = 10
 		}
-		if wx2 < 0 {
-			wx2 = 0
+		if wx2 < 10 {
+			wx2 = 10
 		}
-		if wx3 < 0 {
-			wx3 = 0
+		if wx3 < 10 {
+			wx3 = 10
 		}
-		if wy0 < 0 {
-			wy0 = 0
+		if wy0 < 10 {
+			wy0 = 10
 		}
-		if wy1 < 0 {
-			wy1 = 0
+		if wy1 < 10 {
+			wy1 = 10
 		}
-		if wy2 < 0 {
-			wy2 = 0
+		if wy2 < 10 {
+			wy2 = 10
 		}
-		if wy3 < 0 {
-			wy3 = 0
+		if wy3 < 10 {
+			wy3 = 10
 		}
-		w := engo.GameWidth()
-		h := engo.GameHeight()
 		if wx0 > w {
 			wx0 = w
 		}
@@ -251,31 +258,29 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 			wy3 = h
 		}
 
-		println(s.player.Rotation)
-
 		setBufferValue(buffer, 0, wx0, &changed)
 		setBufferValue(buffer, 1, wy0, &changed)
 		setBufferValue(buffer, 2, tint, &changed)
 
 		setBufferValue(buffer, 3, wx1, &changed)
 		setBufferValue(buffer, 4, wy1, &changed)
-		setBufferValue(buffer, 5, tint, &changed)
+		setBufferValue(buffer, 5, tint1, &changed)
 
 		setBufferValue(buffer, 6, wx2, &changed)
 		setBufferValue(buffer, 7, wy2, &changed)
-		setBufferValue(buffer, 8, tint, &changed)
+		setBufferValue(buffer, 8, tint2, &changed)
 
 		setBufferValue(buffer, 9, wx2, &changed)
 		setBufferValue(buffer, 10, wy2, &changed)
-		setBufferValue(buffer, 11, tint, &changed)
+		setBufferValue(buffer, 11, tint2, &changed)
 
 		setBufferValue(buffer, 12, wx1, &changed)
 		setBufferValue(buffer, 13, wy1, &changed)
-		setBufferValue(buffer, 14, tint, &changed)
+		setBufferValue(buffer, 14, tint1, &changed)
 
 		setBufferValue(buffer, 15, wx3, &changed)
 		setBufferValue(buffer, 16, wy3, &changed)
-		setBufferValue(buffer, 17, tint, &changed)
+		setBufferValue(buffer, 17, tint3, &changed)
 	default:
 		unsupportedType(ren.Drawable)
 	}
@@ -289,8 +294,6 @@ func (s *viewShader) ShouldDraw(ren *common.RenderComponent, space *common.Space
 	if s.player == nil {
 		return false
 	}
-	s.y0 = 0
-	s.y1 = 0
 	if s.lastBuffer != ren.Buffer || ren.Buffer == nil {
 		s.updateBuffer(ren, space)
 
@@ -299,10 +302,6 @@ func (s *viewShader) ShouldDraw(ren *common.RenderComponent, space *common.Space
 		engo.Gl.VertexAttribPointer(s.inColor, 4, engo.Gl.UNSIGNED_BYTE, true, 12, 8)
 
 		s.lastBuffer = ren.Buffer
-	}
-
-	if s.y0 < 0 && s.y1 < 0 {
-		return false
 	}
 
 	return true

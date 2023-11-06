@@ -73,7 +73,7 @@ func (s *ControlSystem) Update(dt float32) {
 			s.entities[i].velocity = v
 		}
 		ctr := entity.GetSpaceComponent().Center()
-		entity.Rotation += engo.Input.Axis("hori").Value() * entity.RotSpeed * dt
+		entity.Rotation += math.Clamp(engo.Input.Axis("hori").Value()*entity.RotSpeed*dt, -5, 5)
 		entity.SetCenter(ctr)
 		sin, cos := math.Sincos(entity.Rotation * math.Pi / 180)
 		entpt := engo.Point{

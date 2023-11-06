@@ -31,13 +31,11 @@ func (Wall) View() (float32, float32, float32, float32) { return 0, 0, 1, 1 }
 func (Wall) Close() {}
 
 func clipBehindPlayer(x0, y0, z0, x1, y1, z1 float32) (x2, y2, z2 float32) {
-	da := y0
-	db := y1
-	d := da - db
+	d := y0 - y1
 	if d == 0 {
 		d = 1
 	}
-	s := da / d
+	s := y0 / d
 	x2 = x0 + s*(x1-x0)
 	y2 = y0 + s*(y1-y0)
 	if y2 == 0 {

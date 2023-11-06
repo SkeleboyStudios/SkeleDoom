@@ -107,6 +107,7 @@ func (s *ViewSystem) AddByInterface(i ecs.Identifier) {
 		s.player.hands.RenderComponent = common.RenderComponent{Drawable: tex}
 		s.player.hands.Scale = engo.Point{X: 2, Y: 2}
 		s.player.hands.SetShader(common.HUDShader)
+		s.player.hands.Hidden = true
 		s.player.SpaceComponent = o.GetSpaceComponent()
 		shaders.ViewShader.AddPlayer(o.GetSpaceComponent())
 		s.w.AddEntity(&s.player.hands)
