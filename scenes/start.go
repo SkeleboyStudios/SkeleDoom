@@ -57,6 +57,10 @@ func (s *StartScene) Setup(u engo.Updater) {
 	var notviewable *systems.NotViewAble
 	w.AddSystemInterface(&systems.ViewSystem{}, []any{playerviewable, wallviewable}, notviewable)
 
+	var playeritemable *systems.ViewPlayerAble
+	var itemable *systems.ItemAble
+	w.AddSystemInterface(&systems.ItemSystem{}, []any{playeritemable, itemable}, nil)
+
 	var controlable *systems.ControlAble
 	w.AddSystemInterface(&systems.ControlSystem{}, controlable, nil)
 
@@ -81,4 +85,27 @@ func (s *StartScene) Setup(u engo.Updater) {
 	addWall(engo.Point{X: 15, Y: 15}, engo.Point{X: 200, Y: 250}, brickTex)
 	addWall(engo.Point{X: 150, Y: 50}, engo.Point{X: 250, Y: -25}, brickTex)
 	addWall(engo.Point{X: 150, Y: 50}, engo.Point{X: 150, Y: -25}, brickTex)
+
+	// Generate the potion texture (must be after GL context is ready).
+	potionTex := shaders.CreatePotionTexture(64)
+
+	// addItem places a pickupable potion at the given wall-space position.
+	addItem := func(pos engo.Point, effect systems.ItemEffect) {
+		e := item{BasicEntity: ecs.NewBasic()}
+		e.Position = pos
+		e.Tex = potionTex
+		e.W = 20
+		e.H = 30
+		e.Radius = 20
+		e.Effect = effect
+		w.AddEntity(&e)
+	}
+
+	// Demo potions – replace the effects with whatever gameplay logic you need.
+	addItem(engo.Point{X: 40, Y: 30}, func() {
+		p.Speed += 50 // speed boost
+	})
+	addItem(engo.Point{X: 120, Y: -10}, func() {
+		p.RotSpeed += 10 // turn-speed boost
+	})
 }

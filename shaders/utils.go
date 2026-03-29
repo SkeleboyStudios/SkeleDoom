@@ -13,6 +13,12 @@ var (
 	ViewShader = &viewShader{}
 )
 
+// PlayerOffset is the offset subtracted from the player's world position when
+// computing wall/billboard-relative camera coordinates for 3D rendering.
+// Exported so that systems outside this package (e.g. ItemSystem) can perform
+// proximity checks in the same coordinate space as walls.
+var PlayerOffset = engo.Point{X: 49, Y: 242}
+
 type Wall struct {
 	Line engo.Line
 	Tex  *gl.Texture
@@ -21,13 +27,26 @@ type Wall struct {
 
 func (w Wall) Texture() *gl.Texture { return w.Tex }
 
-func (Wall) Width() float32 { return 0 }
-
-func (w Wall) Height() float32 { return w.H }
-
+func (Wall) Width() float32                             { return 0 }
+func (w Wall) Height() float32                          { return w.H }
 func (Wall) View() (float32, float32, float32, float32) { return 0, 0, 1, 1 }
+func (Wall) Close()                                     {}
 
-func (Wall) Close() {}
+// Billboard is a camera-facing rectangular sprite in the 3D view. It renders
+// as a vertical quad that always faces the player (y-axis billboard).
+// Pos is the world-map position in the same coordinate space as wall endpoints;
+// W and H are the world-unit width and height of the sprite.
+type Billboard struct {
+	Pos  engo.Point
+	W, H float32
+	Tex  *gl.Texture
+}
+
+func (b Billboard) Texture() *gl.Texture                     { return b.Tex }
+func (Billboard) Width() float32                             { return 0 }
+func (b Billboard) Height() float32                          { return b.H }
+func (Billboard) View() (float32, float32, float32, float32) { return 0, 0, 1, 1 }
+func (Billboard) Close()                                     {}
 
 func clipBehindPlayer(x0, y0, z0, x1, y1, z1 float32) (x2, y2, z2 float32) {
 	d := y0 - y1
