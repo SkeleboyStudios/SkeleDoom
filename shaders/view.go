@@ -31,7 +31,8 @@ type viewShader struct {
 
 	player       *common.SpaceComponent
 	playerOffset engo.Point
-	fov          float32
+	fovAngleDeg  float32
+	tanHalfFov   float32
 }
 
 func (s *viewShader) Setup(w *ecs.World) error {
@@ -98,7 +99,8 @@ void main (void) {
 	s.modelMatrix[4] = 1
 	s.modelMatrix[8] = 1
 
-	s.fov = 200
+	s.fovAngleDeg = 90
+	s.tanHalfFov = math.Tan((s.fovAngleDeg * math.Pi / 180) * 0.5)
 	s.playerOffset = engo.Point{X: 49, Y: 242}
 
 	return nil
@@ -168,9 +170,9 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		p1 := d.Line.P1
 		p2 := d.Line.P2
 		p1X := (p1.X - (s.player.Position.X - s.playerOffset.X))
-		p1Y := (p1.Y + (s.player.Position.Y - s.playerOffset.Y))
+		p1Y := (-p1.Y + (s.player.Position.Y - s.playerOffset.Y))
 		p2X := (p2.X - (s.player.Position.X - s.playerOffset.X))
-		p2Y := (p2.Y + (s.player.Position.Y - s.playerOffset.Y))
+		p2Y := (-p2.Y + (s.player.Position.Y - s.playerOffset.Y))
 		x0 := (p1X*cos - p1Y*sin)
 		y0 := (p1Y*cos + p1X*sin)
 		z0 := -1 * s.player.Height
@@ -184,78 +186,84 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		y3 := y1
 		z3 := -1*s.player.Height + d.H
 
-		//clipping behind player
-		if y0 < 1 && y1 < 1 {
-			x0, y0, z0 = 0, 1, 0
-			x1, y1, z1 = 0, 1, 0
-			x2, y2, z2 = 0, 1, 0
-			x3, y3, z3 = 0, 1, 0
-		} else if y0 < 1 {
+		const near float32 = 1.0
+
+		// Clip against near plane in camera space
+		if y0 < near && y1 < near {
+			return false
+		} else if y0 < near {
 			x0, y0, z0 = clipBehindPlayer(x0, y0, z0, x1, y1, z1)
 			x2, y2, z2 = clipBehindPlayer(x2, y2, z2, x3, y3, z3)
-		} else if y1 < 1 {
+		} else if y1 < near {
 			x1, y1, z1 = clipBehindPlayer(x1, y1, z1, x0, y0, z0)
 			x3, y3, z3 = clipBehindPlayer(x3, y3, z3, x2, y2, z2)
 		}
 
-		//convert to screen coordinates
-		wx0 := ((x0 * s.fov / y0) + w/2)
-		wy0 := ((z0 * s.fov / y0) + h/2)
-		wx1 := ((x1 * s.fov / y1) + w/2)
-		wy1 := ((z1 * s.fov / y1) + h/2)
-		wx2 := ((x2 * s.fov / y2) + w/2)
-		wy2 := ((z2 * s.fov / y2) + h/2)
-		wx3 := ((x3 * s.fov / y3) + w/2)
-		wy3 := ((z3 * s.fov / y3) + h/2)
+		// Side frustum clipping in camera space: -y*tanHalfFov <= x <= y*tanHalfFov
+		clipSide := func(xa, ya, za, xb, yb, zb, sign float32) (float32, float32, float32) {
+			fa := sign*xa + ya*s.tanHalfFov
+			fb := sign*xb + yb*s.tanHalfFov
+			t := fa / (fa - fb)
+			return xa + (xb-xa)*t, ya + (yb-ya)*t, za + (zb-za)*t
+		}
 
-		//clipping to screen
-		if wx0 < 10 {
-			wx0 = 10
+		// Left plane (sign=+1)
+		left0 := x0 + y0*s.tanHalfFov
+		left1 := x1 + y1*s.tanHalfFov
+		if left0 < 0 && left1 < 0 {
+			return false
 		}
-		if wx1 < 10 {
-			wx1 = 10
+		if left0 < 0 {
+			x0, y0, z0 = clipSide(x0, y0, z0, x1, y1, z1, 1)
+			x2, y2, z2 = clipSide(x2, y2, z2, x3, y3, z3, 1)
+		} else if left1 < 0 {
+			x1, y1, z1 = clipSide(x1, y1, z1, x0, y0, z0, 1)
+			x3, y3, z3 = clipSide(x3, y3, z3, x2, y2, z2, 1)
 		}
-		if wx2 < 10 {
-			wx2 = 10
+
+		// Right plane (sign=-1): y*tanHalfFov - x >= 0
+		right0 := y0*s.tanHalfFov - x0
+		right1 := y1*s.tanHalfFov - x1
+		if right0 < 0 && right1 < 0 {
+			return false
 		}
-		if wx3 < 10 {
-			wx3 = 10
+		if right0 < 0 {
+			x0, y0, z0 = clipSide(x0, y0, z0, x1, y1, z1, -1)
+			x2, y2, z2 = clipSide(x2, y2, z2, x3, y3, z3, -1)
+		} else if right1 < 0 {
+			x1, y1, z1 = clipSide(x1, y1, z1, x0, y0, z0, -1)
+			x3, y3, z3 = clipSide(x3, y3, z3, x2, y2, z2, -1)
 		}
-		if wy0 < 10 {
-			wy0 = 10
+
+		// Safety for numerical precision around near plane
+		if y0 < near {
+			y0 = near
+			y2 = near
 		}
-		if wy1 < 10 {
-			wy1 = 10
+		if y1 < near {
+			y1 = near
+			y3 = near
 		}
-		if wy2 < 10 {
-			wy2 = 10
-		}
-		if wy3 < 10 {
-			wy3 = 10
-		}
-		if wx0 > w {
-			wx0 = w
-		}
-		if wx1 > w {
-			wx1 = w
-		}
-		if wx2 > w {
-			wx2 = w
-		}
-		if wx3 > w {
-			wx3 = w
-		}
-		if wy0 > h {
-			wy0 = h
-		}
-		if wy1 > h {
-			wy1 = h
-		}
-		if wy2 > h {
-			wy2 = h
-		}
-		if wy3 > h {
-			wy3 = h
+
+		// Convert to screen coordinates using angle-derived focal lengths
+		focalX := (w * 0.5) / s.tanHalfFov
+		focalY := focalX
+
+		wx0 := ((x0 * focalX / y0) + w/2)
+		wy0 := ((z0 * focalY / y0) + h/2)
+		wx1 := ((x1 * focalX / y1) + w/2)
+		wy1 := ((z1 * focalY / y1) + h/2)
+		wx2 := ((x2 * focalX / y2) + w/2)
+		wy2 := ((z2 * focalY / y2) + h/2)
+		wx3 := ((x3 * focalX / y3) + w/2)
+		wy3 := ((z3 * focalY / y3) + h/2)
+
+		// Reject fully off-screen quads without distorting geometry
+		if (wx0 < 0 && wx1 < 0 && wx2 < 0 && wx3 < 0) ||
+			(wx0 > w && wx1 > w && wx2 > w && wx3 > w) ||
+			(wy0 < 0 && wy1 < 0 && wy2 < 0 && wy3 < 0) ||
+			(wy0 > h && wy1 > h && wy2 > h && wy3 > h) {
+			return false
 		}
 
 		setBufferValue(buffer, 0, wx0, &changed)

@@ -6,7 +6,6 @@ import (
 	"github.com/EngoEngine/ecs"
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/engo/common"
-	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 )
 
 type NotMapComponent struct{}
@@ -97,12 +96,20 @@ func (s *MapSystem) New(w *ecs.World) {
 	s.boundingbox = sprite{BasicEntity: ecs.NewBasic()}
 	s.boundingbox.SpaceComponent = common.SpaceComponent{
 		Position: engo.Point{X: 10, Y: 213},
+		Width:    300,
+		Height:   150,
 	}
-	borderTex, _ := common.LoadedSprite("ui/statsborder.png")
+	//borderTex, _ := common.LoadedSprite("ui/statsborder.png")
+	borderbox := common.Rectangle{
+		BorderWidth: 3,
+		BorderColor: color.RGBA{0xA4, 0xB7, 0xB7, 0xFF},
+	}
 	s.boundingbox.RenderComponent = common.RenderComponent{
-		Drawable: borderTex,
+		//Drawable: borderTex,
+		Drawable: borderbox,
+		Color:    color.RGBA{0x54, 0xCD, 0xF0, 0xFF},
 	}
-	s.boundingbox.SetShader(common.HUDShader)
+	s.boundingbox.SetShader(common.LegacyHUDShader)
 	s.boundingbox.SetZIndex(3)
 	s.boundingbox.Hidden = true
 	w.AddEntity(&s.boundingbox)
@@ -121,8 +128,8 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 			Color:       color.RGBA{0xFF, 0x00, 0x00, 0xFF},
 			StartZIndex: 5,
 		}
-		s.player.Hidden = true
-		s.player.SetShader(shaders.MapShader)
+		//s.player.Hidden = true
+		s.player.SetShader(common.LegacyHUDShader)
 		s.player.CollisionComponent = &common.CollisionComponent{Main: CollisionGroupPlaya}
 		s.w.AddEntity(&s.player)
 	}
@@ -159,9 +166,9 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 			Color:       color.RGBA{0x54, 0xCD, 0xF0, 0xFF},
 			StartZIndex: 5,
 		}
-		wa.SetShader(shaders.MapShader)
+		wa.SetShader(common.LegacyHUDShader)
 		wa.CollisionComponent = &common.CollisionComponent{Group: CollisionGroupPlaya}
-		wa.Hidden = true
+		//wa.Hidden = true
 		s.w.AddEntity(&wa)
 		s.walls = append(s.walls, wa)
 	}

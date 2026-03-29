@@ -6,6 +6,7 @@ import (
 	"github.com/EngoEngine/ecs"
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/engo/common"
+	"github.com/EngoEngine/engo/math"
 
 	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 )
@@ -128,24 +129,58 @@ func (s *ViewSystem) AddByInterface(i ecs.Identifier) {
 func (s *ViewSystem) Remove(basic ecs.BasicEntity) {}
 
 func (s *ViewSystem) Update(dt float32) {
-	// increment := 80.0 / float32(s.numLines)
-	// cur := float32(-40.0)
-	//
-	//	for _, e := range s.walls {
-	//		e.wall.Hidden = true
-	//	}
-	//
-	//	for i := 0; i < s.numLines; i++ {
-	//		l := engo.Line{P1: s.player.SpaceComponent.Position}
-	//		sin, cos := math.Sincos((s.player.SpaceComponent.Rotation + cur) * math.Pi / 180)
-	//		l.P2.X = s.player.SpaceComponent.Position.X + sin*s.lineLength
-	//		l.P2.Y = s.player.SpaceComponent.Position.Y - cos*s.lineLength
-	//		for _, e := range s.walls {
-	//			if _, ok := engo.LineIntersection(l, e.Wall); ok {
-	//				e.wall.Hidden = false
-	//				//e.wall.SetZIndex(p.PointDistance(l.P1))
-	//			}
-	//		}
-	//		cur += increment
-	//	}
+	if s.player.SpaceComponent == nil {
+		return
+	}
+
+	const near float32 = 1.0
+	const fovAngleDeg float32 = 90.0
+	tanHalfFov := math.Tan((fovAngleDeg * math.Pi / 180) * 0.5)
+
+	playerPos := s.player.SpaceComponent.Position
+	playerRot := s.player.SpaceComponent.Rotation
+	playerOffset := engo.Point{X: 49, Y: 242}
+
+	sin, cos := math.Sincos(playerRot * math.Pi / 180)
+
+	for i := range s.walls {
+		e := &s.walls[i]
+		wa := e.WallMapComponent.Wall
+
+		// Translate wall endpoints into player-relative coordinates
+		p1X := wa.P1.X - (playerPos.X - playerOffset.X)
+		p1Y := -wa.P1.Y + (playerPos.Y - playerOffset.Y)
+		p2X := wa.P2.X - (playerPos.X - playerOffset.X)
+		p2Y := -wa.P2.Y + (playerPos.Y - playerOffset.Y)
+
+		// Rotate into camera space (y = depth, x = right-handed: positive x = screen right)
+		x0 := p1Y*sin - p1X*cos
+		y0 := p1Y*cos + p1X*sin
+		x1 := p2Y*sin - p2X*cos
+		y1 := p2Y*cos + p2X*sin
+
+		// Hide if fully behind near plane
+		if y0 < near && y1 < near {
+			e.wall.Hidden = true
+			continue
+		}
+
+		// Frustum-side visibility clipping test in camera space:
+		// visible region satisfies -y*tanHalfFov <= x <= y*tanHalfFov for y > 0
+		left0 := x0 + y0*tanHalfFov
+		left1 := x1 + y1*tanHalfFov
+		right0 := y0*tanHalfFov - x0
+		right1 := y1*tanHalfFov - x1
+
+		if (left0 < 0 && left1 < 0) || (right0 < 0 && right1 < 0) {
+			e.wall.Hidden = true
+			continue
+		}
+
+		e.wall.Hidden = false
+
+		// Painter-style ordering: farther walls first, nearer walls last
+		depth := (y0 + y1) * 0.5
+		e.wall.SetZIndex(-depth)
+	}
 }
