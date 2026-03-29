@@ -166,11 +166,11 @@ func (s *ViewSystem) Update(dt float32) {
 		p2X := wa.P2.X - (playerPos.X - playerOffset.X)
 		p2Y := -wa.P2.Y + (playerPos.Y - playerOffset.Y)
 
-		// Rotate into camera space (y = depth, x = right-handed: positive x = screen right)
-		x0 := p1Y*sin - p1X*cos
-		y0 := p1Y*cos + p1X*sin
-		x1 := p2Y*sin - p2X*cos
-		y1 := p2Y*cos + p2X*sin
+		// Rotate into camera space (y = depth, x = positive right, matching the view shader)
+		x0 := p1X*cos - p1Y*sin
+		y0 := p1X*sin + p1Y*cos
+		x1 := p2X*cos - p2Y*sin
+		y1 := p2X*sin + p2Y*cos
 
 		// Hide if fully behind near plane
 		if y0 < near && y1 < near {
@@ -192,8 +192,21 @@ func (s *ViewSystem) Update(dt float32) {
 
 		e.wall.Hidden = false
 
+		// Clamp y to the near plane before averaging depth. For a diagonal wall,
+		// one endpoint can be far behind the player (large negative y) while the
+		// other is in front. Averaging a large negative with a positive gives a
+		// negative depth, which flips the z-index sign and causes the wall to
+		// render on top of the UI. The shader already clips the geometry to near
+		// on that side, so using near as the floor here is correct.
+		dy0, dy1 := y0, y1
+		if dy0 < near {
+			dy0 = near
+		}
+		if dy1 < near {
+			dy1 = near
+		}
 		// Painter-style ordering: farther walls first, nearer walls last
-		depth := (y0 + y1) * 0.5
+		depth := (dy0+dy1)*0.5 + 50 // offset to ensure walls render behind player hands
 		e.wall.SetZIndex(-depth)
 	}
 }
