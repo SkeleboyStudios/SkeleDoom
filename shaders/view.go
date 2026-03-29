@@ -148,19 +148,25 @@ func (s *viewShader) Pre() {
 	engo.Gl.UniformMatrix3fv(s.matrixView, false, s.viewMatrix)
 }
 
-func (s *viewShader) updateBuffer(ren *common.RenderComponent, space *common.SpaceComponent) {
+// updateBuffer regenerates and uploads the GPU buffer for ren. It returns
+// true when the wall is visible and the buffer is ready to draw, or false
+// when the geometry is entirely clipped and nothing should be drawn.
+func (s *viewShader) updateBuffer(ren *common.RenderComponent, space *common.SpaceComponent) bool {
 	if len(ren.BufferContent) == 0 {
 		ren.BufferContent = make([]float32, s.computeBufferSize(ren.Drawable))
 	}
-	if changed := s.generateBufferContent(ren, space, ren.BufferContent); !changed {
-		return
+	visible, changed := s.generateBufferContent(ren, space, ren.BufferContent)
+	if !visible {
+		return false
 	}
-
-	if ren.Buffer == nil {
-		ren.Buffer = engo.Gl.CreateBuffer()
+	if changed || ren.Buffer == nil {
+		if ren.Buffer == nil {
+			ren.Buffer = engo.Gl.CreateBuffer()
+		}
+		engo.Gl.BindBuffer(engo.Gl.ARRAY_BUFFER, ren.Buffer)
+		engo.Gl.BufferData(engo.Gl.ARRAY_BUFFER, ren.BufferContent, engo.Gl.STATIC_DRAW)
 	}
-	engo.Gl.BindBuffer(engo.Gl.ARRAY_BUFFER, ren.Buffer)
-	engo.Gl.BufferData(engo.Gl.ARRAY_BUFFER, ren.BufferContent, engo.Gl.STATIC_DRAW)
+	return true
 }
 
 func (s *viewShader) computeBufferSize(draw common.Drawable) int {
@@ -182,7 +188,10 @@ func clipU(ua, ub, fa, fb float32) float32 {
 	return ua + (ub-ua)*t
 }
 
-func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *common.SpaceComponent, buffer []float32) bool {
+// generateBufferContent computes screen-space vertex data for ren into buffer.
+// The first return value is false when the wall is fully clipped (don't draw).
+// The second return value is true when the buffer contents actually changed.
+func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *common.SpaceComponent, buffer []float32) (bool, bool) {
 	var changed bool
 
 	tint := colorToFloat32(ren.Color)
@@ -218,7 +227,7 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 
 		// Clip against near plane in camera space
 		if y0 < near && y1 < near {
-			return false
+			return false, false
 		} else if y0 < near {
 			nearT := y0 / (y0 - y1)
 			u0 = u0 + nearT*(u1-u0)
@@ -242,7 +251,7 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		left0 := x0 + y0*s.tanHalfFov
 		left1 := x1 + y1*s.tanHalfFov
 		if left0 < 0 && left1 < 0 {
-			return false
+			return false, false
 		}
 		if left0 < 0 {
 			u0 = clipU(u0, u1, left0, left1)
@@ -258,7 +267,7 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		right0 := y0*s.tanHalfFov - x0
 		right1 := y1*s.tanHalfFov - x1
 		if right0 < 0 && right1 < 0 {
-			return false
+			return false, false
 		}
 		if right0 < 0 {
 			u0 = clipU(u0, u1, right0, right1)
@@ -298,7 +307,7 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 			(wx0 > w && wx1 > w && wx2 > w && wx3 > w) ||
 			(wy0 < 0 && wy1 < 0 && wy2 < 0 && wy3 < 0) ||
 			(wy0 > h && wy1 > h && wy2 > h && wy3 > h) {
-			return false
+			return false, false
 		}
 
 		// Perspective-correct UV components: store u/w, v/w, 1/w
@@ -362,7 +371,7 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		unsupportedType(ren.Drawable)
 	}
 
-	return changed
+	return true, changed
 }
 
 func (s *viewShader) PrepareCulling() {}
@@ -372,7 +381,9 @@ func (s *viewShader) ShouldDraw(ren *common.RenderComponent, space *common.Space
 		return false
 	}
 	if s.lastBuffer != ren.Buffer || ren.Buffer == nil {
-		s.updateBuffer(ren, space)
+		if !s.updateBuffer(ren, space) {
+			return false // wall is entirely clipped; no buffer to draw
+		}
 
 		engo.Gl.BindBuffer(engo.Gl.ARRAY_BUFFER, ren.Buffer)
 
