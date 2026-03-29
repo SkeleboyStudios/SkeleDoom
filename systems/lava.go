@@ -155,8 +155,8 @@ func (s *LavaSystem) AddByInterface(i ecs.Identifier) {
 		// CollisionSystem.Solids, so collisions are detected (Collides updated)
 		// but the player is never pushed back.
 		collision := o.GetCollisionComponent()
-		collision.Main = CollisionGroupPlaya
-		collision.Group = CollisionGroupLava
+		collision.Main = CollisionGroupLava
+		collision.Group = CollisionGroupPlaya
 
 		zone := lavaZoneEntity{
 			BasicEntity:        o.GetBasicEntity(),

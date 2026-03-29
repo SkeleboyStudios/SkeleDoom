@@ -154,7 +154,10 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		}
 		//s.player.Hidden = true
 		s.player.SetShader(shaders.MinimapShader)
-		s.player.CollisionComponent = &common.CollisionComponent{Group: CollisionGroupPlaya}
+		s.player.CollisionComponent = &common.CollisionComponent{
+			Main:  CollisionGroupPlaya,
+			Group: CollisionGroupWall | CollisionGroupLava | CollisionGroupDoor | CollisionGroupInterest,
+		}
 		s.w.AddEntity(&s.player)
 	}
 	if o, ok := i.(WallMapAble); ok {
@@ -192,7 +195,8 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		}
 		wa.SetShader(shaders.MinimapShader)
 		wa.CollisionComponent = &common.CollisionComponent{
-			Group: CollisionGroupWall,
+			Main:  CollisionGroupWall,
+			Group: CollisionGroupPlaya,
 		}
 		//wa.Hidden = true
 		s.w.AddEntity(&wa)
