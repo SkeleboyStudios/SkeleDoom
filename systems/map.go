@@ -9,6 +9,11 @@ import (
 	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 )
 
+// MapWallOffsetX and MapWallOffsetY are the offsets added to wall/item world
+// positions to place them in minimap space. Set by MapSystem.New() and read
+// by ItemSystem when creating minimap dots.
+var MapWallOffsetX, MapWallOffsetY float32
+
 type NotMapComponent struct{}
 
 func (c *NotMapComponent) GetNotMapComponent() *NotMapComponent { return c }
@@ -112,6 +117,8 @@ func (s *MapSystem) New(w *ecs.World) {
 		StartZIndex: 1,
 	}
 	s.boundingbox.SetShader(common.LegacyHUDShader)
+	MapWallOffsetX = s.boundingbox.Position.X + 29
+	MapWallOffsetY = s.boundingbox.Position.Y + 40
 	// Tell the minimap wall shader to clip to this bounding box.
 	shaders.MinimapShader.SetClipRect(
 		s.boundingbox.Position.X,
