@@ -7,6 +7,7 @@ import (
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/engo/common"
 	"github.com/EngoEngine/engo/math"
+	"github.com/EngoEngine/gl"
 
 	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 )
@@ -54,7 +55,11 @@ type viewPlayerEntity struct {
 	*NotViewComponent
 }
 
-type ViewWallComponent struct{}
+type ViewWallComponent struct {
+	// Tex is the optional wall texture used by the 3D view shader.
+	// Set this before adding the entity to the world; nil falls back to solid colour.
+	Tex *gl.Texture
+}
 
 func (c *ViewWallComponent) GetViewWallComponent() *ViewWallComponent { return c }
 
@@ -118,7 +123,15 @@ func (s *ViewSystem) AddByInterface(i ecs.Identifier) {
 		wall := viewWallEntity{BasicEntity: o.GetBasicEntity()}
 		wall.wall.BasicEntity = ecs.NewBasic()
 		wall.wall.SpaceComponent = common.SpaceComponent{Position: wa.P1, Width: wa.Magnitude(), Height: 60}
-		wall.wall.RenderComponent = &common.RenderComponent{Drawable: shaders.Wall{Line: wa, H: 60}, Color: color.RGBA{0x00, 0x00, 0xff, 0xff}}
+		wallTex := o.GetViewWallComponent().Tex
+		wallColor := color.RGBA{0xff, 0xff, 0xff, 0xff} // white so textures render true-colour
+		if wallTex == nil {
+			wallColor = color.RGBA{0x00, 0x00, 0xff, 0xff} // fall back to blue when untextured
+		}
+		wall.wall.RenderComponent = &common.RenderComponent{
+			Drawable: shaders.Wall{Line: wa, H: 60, Tex: wallTex},
+			Color:    wallColor,
+		}
 		wall.wall.SetShader(shaders.ViewShader)
 		wall.WallMapComponent = o.GetWallMapComponent()
 		s.w.AddEntity(&wall.wall)
