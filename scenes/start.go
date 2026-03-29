@@ -6,6 +6,7 @@ import (
 	"github.com/EngoEngine/ecs"
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/engo/common"
+	"github.com/EngoEngine/gl"
 	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 	"github.com/SkeleboyStudios/SkeleDoom/systems"
 )
@@ -64,31 +65,19 @@ func (s *StartScene) Setup(u engo.Updater) {
 	p.Height = 20
 	w.AddEntity(&p)
 
-	wall1 := wall{BasicEntity: ecs.NewBasic()}
-	wall1.Wall = engo.Line{
-		P1: engo.Point{X: -25, Y: 0},
-		P2: engo.Point{X: 100, Y: 0},
-	}
-	w.AddEntity(&wall1)
+	// Generate a single brick texture shared by all walls.
+	// CreateBrickTexture must be called after the GL context is ready (i.e. here in Setup).
+	brickTex := shaders.CreateBrickTexture(128, 128)
 
-	wall2 := wall{BasicEntity: ecs.NewBasic()}
-	wall2.Wall = engo.Line{
-		P1: engo.Point{X: 15, Y: 15},
-		P2: engo.Point{X: 200, Y: 250},
+	addWall := func(p1, p2 engo.Point, tex *gl.Texture) {
+		e := wall{BasicEntity: ecs.NewBasic()}
+		e.Wall = engo.Line{P1: p1, P2: p2}
+		e.Tex = tex
+		w.AddEntity(&e)
 	}
-	w.AddEntity(&wall2)
 
-	wall3 := wall{BasicEntity: ecs.NewBasic()}
-	wall3.Wall = engo.Line{
-		P1: engo.Point{X: 150, Y: 50},
-		P2: engo.Point{X: 250, Y: -25},
-	}
-	w.AddEntity(&wall3)
-
-	wall4 := wall{BasicEntity: ecs.NewBasic()}
-	wall4.Wall = engo.Line{
-		P1: engo.Point{X: 150, Y: 50},
-		P2: engo.Point{X: 150, Y: -25},
-	}
-	w.AddEntity(&wall4)
+	addWall(engo.Point{X: -25, Y: 0}, engo.Point{X: 100, Y: 0}, brickTex)
+	addWall(engo.Point{X: 15, Y: 15}, engo.Point{X: 200, Y: 250}, brickTex)
+	addWall(engo.Point{X: 150, Y: 50}, engo.Point{X: 250, Y: -25}, brickTex)
+	addWall(engo.Point{X: 150, Y: 50}, engo.Point{X: 150, Y: -25}, brickTex)
 }
