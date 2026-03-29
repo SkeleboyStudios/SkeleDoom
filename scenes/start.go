@@ -48,7 +48,7 @@ func (s *StartScene) Setup(u engo.Updater) {
 
 	var collisionable *common.Collisionable
 	var notcollisionable *common.NotCollisionable
-	w.AddSystemInterface(&common.CollisionSystem{Solids: systems.CollisionGroupPlaya}, collisionable, notcollisionable)
+	w.AddSystemInterface(&common.CollisionSystem{Solids: systems.CollisionGroupWall}, collisionable, notcollisionable)
 
 	var playermapable *systems.PlayerMapAble
 	var wallmapable *systems.WallMapAble

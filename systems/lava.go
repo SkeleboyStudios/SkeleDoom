@@ -148,15 +148,15 @@ func (s *LavaSystem) AddByInterface(i ecs.Identifier) {
 		origY := space.Position.Y
 		origW := space.Width
 		origH := space.Height
-		space.Position.X = origX + MapPlayerSpawnOffsetX
-		space.Position.Y = origY + MapPlayerSpawnOffsetY
+		space.Position.X = origX + MapWallOffsetX
+		space.Position.Y = origY + MapWallOffsetY
 
 		// Tag this entity as a lava initiator.  CollisionGroupLava is NOT in
 		// CollisionSystem.Solids, so collisions are detected (Collides updated)
 		// but the player is never pushed back.
 		collision := o.GetCollisionComponent()
-		collision.Main = CollisionGroupLava
-		collision.Group = CollisionGroupPlaya
+		collision.Main = CollisionGroupPlaya
+		collision.Group = CollisionGroupLava
 
 		zone := lavaZoneEntity{
 			BasicEntity:        o.GetBasicEntity(),

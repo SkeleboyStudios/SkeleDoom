@@ -143,8 +143,8 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 	if o, ok := i.(PlayerMapAble); ok {
 		s.player.BasicEntity = o.GetBasicEntity()
 		s.player.SpaceComponent = o.GetSpaceComponent()
-		s.player.Position.X += s.boundingbox.Position.X + MapPlayerSpawnOffsetX
-		s.player.Position.Y += s.boundingbox.Position.Y + MapPlayerSpawnOffsetY
+		s.player.Position.X += MapPlayerSpawnOffsetX
+		s.player.Position.Y += MapPlayerSpawnOffsetY
 		s.player.Width = 5
 		s.player.Height = 10
 		s.player.RenderComponent = &common.RenderComponent{
@@ -154,16 +154,16 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		}
 		//s.player.Hidden = true
 		s.player.SetShader(shaders.MinimapShader)
-		s.player.CollisionComponent = &common.CollisionComponent{Main: CollisionGroupPlaya}
+		s.player.CollisionComponent = &common.CollisionComponent{Group: CollisionGroupPlaya}
 		s.w.AddEntity(&s.player)
 	}
 	if o, ok := i.(WallMapAble); ok {
 		wa := mapWallEntity{BasicEntity: o.GetBasicEntity()}
 		wall := o.GetWallMapComponent().Wall
-		wall.P1.X += s.boundingbox.Position.X + MapWallOffsetX
-		wall.P2.X += s.boundingbox.Position.X + MapWallOffsetX
-		wall.P1.Y += s.boundingbox.Position.Y + MapWallOffsetY
-		wall.P2.Y += s.boundingbox.Position.Y + MapWallOffsetY
+		wall.P1.X += MapWallOffsetX
+		wall.P2.X += MapWallOffsetX
+		wall.P1.Y += MapWallOffsetY
+		wall.P2.Y += MapWallOffsetY
 		wa.SpaceComponent = &common.SpaceComponent{
 			Position: wall.P1,
 			Width:    5,
@@ -192,8 +192,7 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		}
 		wa.SetShader(shaders.MinimapShader)
 		wa.CollisionComponent = &common.CollisionComponent{
-			Main:  CollisionGroupWall,
-			Group: CollisionGroupPlaya,
+			Group: CollisionGroupWall,
 		}
 		//wa.Hidden = true
 		s.w.AddEntity(&wa)
@@ -207,8 +206,8 @@ func (s *MapSystem) Update(dt float32) {
 	width, height := s.player.SpaceComponent.Width, s.player.SpaceComponent.Height
 
 	pos := s.player.SpaceComponent.Position
-	trackToX := pos.X + width/2 + MapPlayerSpawnOffsetX
-	trackToY := pos.Y + height/2 - MapPlayerSpawnOffsetY
+	trackToX := pos.X + width/2 + 188.5
+	trackToY := pos.Y + height/2 - 108
 
 	engo.Mailbox.Dispatch(common.CameraMessage{Axis: common.XAxis, Value: trackToX, Incremental: false})
 	engo.Mailbox.Dispatch(common.CameraMessage{Axis: common.YAxis, Value: trackToY, Incremental: false})
