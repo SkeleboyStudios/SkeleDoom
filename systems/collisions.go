@@ -5,4 +5,5 @@ const (
 	CollisionGroupWall
 	CollisionGroupDoor
 	CollisionGroupInterest
+	CollisionGroupLava
 )

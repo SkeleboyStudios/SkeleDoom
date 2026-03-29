@@ -29,3 +29,11 @@ type player struct {
 	systems.ControlComponent
 	systems.ViewPlayerComponent
 }
+
+type lavaZone struct {
+	ecs.BasicEntity
+
+	common.SpaceComponent
+	common.CollisionComponent
+	systems.LavaZoneComponent
+}

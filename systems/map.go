@@ -9,6 +9,22 @@ import (
 	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 )
 
+const (
+	// MapWallOffsetX and MapWallOffsetY convert a wall endpoint from wall
+	// world-space (as defined in the scene) to minimap screen-space.
+	// They equal (boundingBox.Position.X + 29, boundingBox.Position.Y + 40).
+	MapWallOffsetX float32 = 39
+	MapWallOffsetY float32 = 253
+
+	// MapPlayerSpawnOffsetX and MapPlayerSpawnOffsetY are the values that
+	// MapSystem adds to a freshly-spawned player's SpaceComponent.Position.
+	// Subtract these from SpaceComponent.Position to recover the player's
+	// coordinates in wall world-space (the same space as wall endpoints).
+	// They equal (boundingBox.Position.X + 121.5, boundingBox.Position.Y + 75).
+	MapPlayerSpawnOffsetX float32 = 131.5
+	MapPlayerSpawnOffsetY float32 = 288
+)
+
 type NotMapComponent struct{}
 
 func (c *NotMapComponent) GetNotMapComponent() *NotMapComponent { return c }
@@ -127,8 +143,8 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 	if o, ok := i.(PlayerMapAble); ok {
 		s.player.BasicEntity = o.GetBasicEntity()
 		s.player.SpaceComponent = o.GetSpaceComponent()
-		s.player.Position.X += s.boundingbox.Position.X + 121.5
-		s.player.Position.Y += s.boundingbox.Position.Y + 75
+		s.player.Position.X += s.boundingbox.Position.X + MapPlayerSpawnOffsetX
+		s.player.Position.Y += s.boundingbox.Position.Y + MapPlayerSpawnOffsetY
 		s.player.Width = 5
 		s.player.Height = 10
 		s.player.RenderComponent = &common.RenderComponent{
@@ -144,10 +160,10 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 	if o, ok := i.(WallMapAble); ok {
 		wa := mapWallEntity{BasicEntity: o.GetBasicEntity()}
 		wall := o.GetWallMapComponent().Wall
-		wall.P1.X += s.boundingbox.Position.X + 29
-		wall.P2.X += s.boundingbox.Position.X + 29
-		wall.P1.Y += s.boundingbox.Position.Y + 40
-		wall.P2.Y += s.boundingbox.Position.Y + 40
+		wall.P1.X += s.boundingbox.Position.X + MapWallOffsetX
+		wall.P2.X += s.boundingbox.Position.X + MapWallOffsetX
+		wall.P1.Y += s.boundingbox.Position.Y + MapWallOffsetY
+		wall.P2.Y += s.boundingbox.Position.Y + MapWallOffsetY
 		wa.SpaceComponent = &common.SpaceComponent{
 			Position: wall.P1,
 			Width:    5,
@@ -175,7 +191,10 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 			StartZIndex: 6,
 		}
 		wa.SetShader(shaders.MinimapShader)
-		wa.CollisionComponent = &common.CollisionComponent{Group: CollisionGroupPlaya}
+		wa.CollisionComponent = &common.CollisionComponent{
+			Main:  CollisionGroupWall,
+			Group: CollisionGroupPlaya,
+		}
 		//wa.Hidden = true
 		s.w.AddEntity(&wa)
 		s.walls = append(s.walls, wa)
@@ -188,8 +207,8 @@ func (s *MapSystem) Update(dt float32) {
 	width, height := s.player.SpaceComponent.Width, s.player.SpaceComponent.Height
 
 	pos := s.player.SpaceComponent.Position
-	trackToX := pos.X + width/2 + 188.5
-	trackToY := pos.Y + height/2 - 108
+	trackToX := pos.X + width/2 + MapPlayerSpawnOffsetX
+	trackToY := pos.Y + height/2 - MapPlayerSpawnOffsetY
 
 	engo.Mailbox.Dispatch(common.CameraMessage{Axis: common.XAxis, Value: trackToX, Incremental: false})
 	engo.Mailbox.Dispatch(common.CameraMessage{Axis: common.YAxis, Value: trackToY, Incremental: false})
