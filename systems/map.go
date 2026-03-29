@@ -6,6 +6,7 @@ import (
 	"github.com/EngoEngine/ecs"
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/engo/common"
+	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 )
 
 type NotMapComponent struct{}
@@ -106,12 +107,19 @@ func (s *MapSystem) New(w *ecs.World) {
 	}
 	s.boundingbox.RenderComponent = common.RenderComponent{
 		//Drawable: borderTex,
-		Drawable: borderbox,
-		Color:    color.RGBA{0x54, 0xCD, 0xF0, 0xFF},
+		Drawable:    borderbox,
+		Color:       color.RGBA{0x54, 0xCD, 0xF0, 0xFF},
+		StartZIndex: 1,
 	}
 	s.boundingbox.SetShader(common.LegacyHUDShader)
-	s.boundingbox.SetZIndex(3)
-	s.boundingbox.Hidden = true
+	// Tell the minimap wall shader to clip to this bounding box.
+	shaders.MinimapShader.SetClipRect(
+		s.boundingbox.Position.X,
+		s.boundingbox.Position.Y,
+		s.boundingbox.Width,
+		s.boundingbox.Height,
+	)
+	//s.boundingbox.Hidden = true
 	w.AddEntity(&s.boundingbox)
 }
 
@@ -129,7 +137,7 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 			StartZIndex: 5,
 		}
 		//s.player.Hidden = true
-		s.player.SetShader(common.LegacyHUDShader)
+		s.player.SetShader(shaders.MinimapShader)
 		s.player.CollisionComponent = &common.CollisionComponent{Main: CollisionGroupPlaya}
 		s.w.AddEntity(&s.player)
 	}
@@ -163,10 +171,10 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		wa.AddShape(common.Shape{Lines: lines})
 		wa.RenderComponent = &common.RenderComponent{
 			Drawable:    common.Rectangle{},
-			Color:       color.RGBA{0x54, 0xCD, 0xF0, 0xFF},
-			StartZIndex: 5,
+			Color:       color.RGBA{0xFF, 0x00, 0x00, 0xFF},
+			StartZIndex: 6,
 		}
-		wa.SetShader(common.LegacyHUDShader)
+		wa.SetShader(shaders.MinimapShader)
 		wa.CollisionComponent = &common.CollisionComponent{Group: CollisionGroupPlaya}
 		//wa.Hidden = true
 		s.w.AddEntity(&wa)

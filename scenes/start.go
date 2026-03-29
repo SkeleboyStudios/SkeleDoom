@@ -22,6 +22,7 @@ func (s *StartScene) Preload() {
 	engo.Files.Load("ui/bomb.png")
 	engo.Files.Load("ui/hands.png")
 	common.AddShader(shaders.ViewShader)
+	common.AddShader(shaders.MinimapShader)
 	engo.Input.RegisterButton("up", engo.KeyW, engo.KeyArrowUp)
 	engo.Input.RegisterButton("down", engo.KeyS, engo.KeyArrowDown)
 	engo.Input.RegisterButton("left", engo.KeyA, engo.KeyArrowLeft)
