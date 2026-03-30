@@ -195,7 +195,7 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		}
 		wa.SetShader(shaders.MinimapShader)
 		wa.CollisionComponent = &common.CollisionComponent{
-			Main:  CollisionGroupWall,
+			Main:  0,
 			Group: CollisionGroupPlaya,
 		}
 		//wa.Hidden = true

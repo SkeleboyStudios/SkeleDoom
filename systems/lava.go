@@ -156,7 +156,7 @@ func (s *LavaSystem) AddByInterface(i ecs.Identifier) {
 		// but the player is never pushed back.
 		collision := o.GetCollisionComponent()
 		collision.Main = CollisionGroupLava
-		collision.Group = CollisionGroupPlaya
+		collision.Group = 0
 
 		zone := lavaZoneEntity{
 			BasicEntity:        o.GetBasicEntity(),
