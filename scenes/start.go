@@ -60,6 +60,10 @@ func (s *StartScene) Setup(u engo.Updater) {
 	var notviewable *systems.NotViewAble
 	w.AddSystemInterface(&systems.ViewSystem{}, []any{playerviewable, wallviewable}, notviewable)
 
+	var playeritemable *systems.ViewPlayerAble
+	var itemable *systems.ItemAble
+	w.AddSystemInterface(&systems.ItemSystem{}, []any{playeritemable, itemable}, nil)
+
 	var controlable *systems.ControlAble
 	w.AddSystemInterface(&systems.ControlSystem{}, controlable, nil)
 
@@ -109,4 +113,26 @@ func (s *StartScene) Setup(u engo.Updater) {
 	// Deep-red lava pit near the corner walls (higher DPS — punishing).
 	addZone(155, -20, 45, 45,
 		color.RGBA{0xCC, 0x11, 0x00, 0xCC}, 20)
+	// Generate the potion texture (must be after GL context is ready).
+	potionTex := shaders.CreatePotionTexture(64)
+
+	// addItem places a pickupable potion at the given wall-space position.
+	addItem := func(pos engo.Point, effect systems.ItemEffect) {
+		e := item{BasicEntity: ecs.NewBasic()}
+		e.Position = pos
+		e.Tex = potionTex
+		e.W = 20
+		e.H = 30
+		e.Radius = 20
+		e.Effect = effect
+		w.AddEntity(&e)
+	}
+
+	// Demo potions – replace the effects with whatever gameplay logic you need.
+	addItem(engo.Point{X: 40, Y: 30}, func() {
+		p.Speed += 50 // speed boost
+	})
+	addItem(engo.Point{X: 120, Y: -10}, func() {
+		p.RotSpeed += 10 // turn-speed boost
+	})
 }

@@ -118,7 +118,7 @@ void main (void) {
 
 	s.fovAngleDeg = 90
 	s.tanHalfFov = math.Tan((s.fovAngleDeg * math.Pi / 180) * 0.5)
-	s.playerOffset = engo.Point{X: 49, Y: 242}
+	s.playerOffset = PlayerOffset
 
 	return nil
 }
@@ -173,6 +173,9 @@ func (s *viewShader) computeBufferSize(draw common.Drawable) int {
 	switch draw.(type) {
 	case Wall:
 		// 6 vertices × 6 floats (x, y, u/w, v/w, 1/w, color) = 36
+		return 36
+	case Billboard:
+		// same layout as Wall: 6 vertices × 6 floats
 		return 36
 	default:
 		return 0
@@ -319,27 +322,27 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		// Triangle 1: v0(bottom-left p1), v1(bottom-right p2), v2(top-left p1)
 		// Triangle 2: v3(top-left p1),    v4(bottom-right p2), v5(top-right p2)
 
-		// v0: bottom-left (p1, v=1 bottom)
+		// v0: bottom-left (p1, v=0 bottom)
 		setBufferValue(buffer, 0, wx0, &changed)
 		setBufferValue(buffer, 1, wy0, &changed)
 		setBufferValue(buffer, 2, u0*ow0, &changed)
-		setBufferValue(buffer, 3, 1*ow0, &changed) // v=1 (bottom of texture)
+		setBufferValue(buffer, 3, 0, &changed) // v=0 (bottom of texture)
 		setBufferValue(buffer, 4, ow0, &changed)
 		setBufferValue(buffer, 5, tint, &changed)
 
-		// v1: bottom-right (p2, v=1 bottom)
+		// v1: bottom-right (p2, v=0 bottom)
 		setBufferValue(buffer, 6, wx1, &changed)
 		setBufferValue(buffer, 7, wy1, &changed)
 		setBufferValue(buffer, 8, u1*ow1, &changed)
-		setBufferValue(buffer, 9, 1*ow1, &changed) // v=1 (bottom of texture)
+		setBufferValue(buffer, 9, 0, &changed) // v=0 (bottom of texture)
 		setBufferValue(buffer, 10, ow1, &changed)
 		setBufferValue(buffer, 11, tint, &changed)
 
-		// v2: top-left (p1, v=0 top)
+		// v2: top-left (p1, v=1 top)
 		setBufferValue(buffer, 12, wx2, &changed)
 		setBufferValue(buffer, 13, wy2, &changed)
 		setBufferValue(buffer, 14, u0*ow0, &changed)
-		setBufferValue(buffer, 15, 0, &changed) // v=0 (top of texture), 0/w = 0
+		setBufferValue(buffer, 15, 1*ow0, &changed) // v=1 (top of texture), perspective-corrected
 		setBufferValue(buffer, 16, ow0, &changed)
 		setBufferValue(buffer, 17, tint, &changed)
 
@@ -347,7 +350,7 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		setBufferValue(buffer, 18, wx2, &changed)
 		setBufferValue(buffer, 19, wy2, &changed)
 		setBufferValue(buffer, 20, u0*ow0, &changed)
-		setBufferValue(buffer, 21, 0, &changed)
+		setBufferValue(buffer, 21, 1*ow0, &changed)
 		setBufferValue(buffer, 22, ow0, &changed)
 		setBufferValue(buffer, 23, tint, &changed)
 
@@ -355,16 +358,132 @@ func (s *viewShader) generateBufferContent(ren *common.RenderComponent, space *c
 		setBufferValue(buffer, 24, wx1, &changed)
 		setBufferValue(buffer, 25, wy1, &changed)
 		setBufferValue(buffer, 26, u1*ow1, &changed)
-		setBufferValue(buffer, 27, 1*ow1, &changed)
+		setBufferValue(buffer, 27, 0, &changed)
 		setBufferValue(buffer, 28, ow1, &changed)
 		setBufferValue(buffer, 29, tint, &changed)
 
-		// v5: top-right (p2, v=0 top)
+		// v5: top-right (p2, v=1 top)
 		setBufferValue(buffer, 30, wx3, &changed)
 		setBufferValue(buffer, 31, wy3, &changed)
 		setBufferValue(buffer, 32, u1*ow1, &changed)
-		setBufferValue(buffer, 33, 0, &changed)
+		setBufferValue(buffer, 33, 1*ow1, &changed)
 		setBufferValue(buffer, 34, ow1, &changed)
+		setBufferValue(buffer, 35, tint, &changed)
+
+	case Billboard:
+		sin, cos := math.Sincos(s.player.Rotation * math.Pi / 180)
+		relX := d.Pos.X - (s.player.Position.X - s.playerOffset.X)
+		relY := -d.Pos.Y + (s.player.Position.Y - s.playerOffset.Y)
+		camX := relX*cos - relY*sin
+		camY := relY*cos + relX*sin // depth
+
+		const near float32 = 1.0
+		if camY < near {
+			return false, false
+		}
+
+		// Billboard extends W/2 to each side at uniform depth.
+		x0 := camX - d.W/2             // left edge in camera space
+		x1 := camX + d.W/2             // right edge in camera space
+		zBot := -s.player.Height       // floor level (same convention as Wall z0)
+		zTop := -s.player.Height + d.H // top of billboard (same as Wall z2)
+
+		u0, u1 := float32(0), float32(1)
+
+		// Left frustum clip: x + y*tanHalfFov >= 0
+		lft0 := x0 + camY*s.tanHalfFov
+		lft1 := x1 + camY*s.tanHalfFov
+		if lft0 < 0 && lft1 < 0 {
+			return false, false
+		}
+		if lft0 < 0 {
+			u0 = clipU(u0, u1, lft0, lft1)
+			t := lft0 / (lft0 - lft1)
+			x0 += t * (x1 - x0)
+		} else if lft1 < 0 {
+			u1 = clipU(u1, u0, lft1, lft0)
+			t := lft1 / (lft1 - lft0)
+			x1 += t * (x0 - x1)
+		}
+
+		// Right frustum clip: y*tanHalfFov - x >= 0
+		rgt0 := camY*s.tanHalfFov - x0
+		rgt1 := camY*s.tanHalfFov - x1
+		if rgt0 < 0 && rgt1 < 0 {
+			return false, false
+		}
+		if rgt0 < 0 {
+			u0 = clipU(u0, u1, rgt0, rgt1)
+			t := rgt0 / (rgt0 - rgt1)
+			x0 += t * (x1 - x0)
+		} else if rgt1 < 0 {
+			u1 = clipU(u1, u0, rgt1, rgt0)
+			t := rgt1 / (rgt1 - rgt0)
+			x1 += t * (x0 - x1)
+		}
+
+		focalX := (w * 0.5) / s.tanHalfFov
+		focalY := focalX
+		ow := float32(1) / camY
+
+		sx0 := x0*focalX/camY + w/2     // screen left
+		sx1 := x1*focalX/camY + w/2     // screen right
+		syBot := zBot*focalY/camY + h/2 // screen bottom edge
+		syTop := zTop*focalY/camY + h/2 // screen top edge
+
+		// Reject fully off-screen quads
+		if (sx0 < 0 && sx1 < 0) || (sx0 > w && sx1 > w) ||
+			(syBot < 0 && syTop < 0) || (syBot > h && syTop > h) {
+			return false, false
+		}
+
+		// Same vertex layout as Wall: 6 vertices × 6 floats
+		// v0: bottom-left
+		setBufferValue(buffer, 0, sx0, &changed)
+		setBufferValue(buffer, 1, syBot, &changed)
+		setBufferValue(buffer, 2, u0*ow, &changed)
+		setBufferValue(buffer, 3, 0, &changed) // v=0 at bottom
+		setBufferValue(buffer, 4, ow, &changed)
+		setBufferValue(buffer, 5, tint, &changed)
+
+		// v1: bottom-right
+		setBufferValue(buffer, 6, sx1, &changed)
+		setBufferValue(buffer, 7, syBot, &changed)
+		setBufferValue(buffer, 8, u1*ow, &changed)
+		setBufferValue(buffer, 9, 0, &changed)
+		setBufferValue(buffer, 10, ow, &changed)
+		setBufferValue(buffer, 11, tint, &changed)
+
+		// v2: top-left
+		setBufferValue(buffer, 12, sx0, &changed)
+		setBufferValue(buffer, 13, syTop, &changed)
+		setBufferValue(buffer, 14, u0*ow, &changed)
+		setBufferValue(buffer, 15, 1*ow, &changed) // v=1 at top
+		setBufferValue(buffer, 16, ow, &changed)
+		setBufferValue(buffer, 17, tint, &changed)
+
+		// v3: top-left again
+		setBufferValue(buffer, 18, sx0, &changed)
+		setBufferValue(buffer, 19, syTop, &changed)
+		setBufferValue(buffer, 20, u0*ow, &changed)
+		setBufferValue(buffer, 21, 1*ow, &changed)
+		setBufferValue(buffer, 22, ow, &changed)
+		setBufferValue(buffer, 23, tint, &changed)
+
+		// v4: bottom-right again
+		setBufferValue(buffer, 24, sx1, &changed)
+		setBufferValue(buffer, 25, syBot, &changed)
+		setBufferValue(buffer, 26, u1*ow, &changed)
+		setBufferValue(buffer, 27, 0, &changed)
+		setBufferValue(buffer, 28, ow, &changed)
+		setBufferValue(buffer, 29, tint, &changed)
+
+		// v5: top-right
+		setBufferValue(buffer, 30, sx1, &changed)
+		setBufferValue(buffer, 31, syTop, &changed)
+		setBufferValue(buffer, 32, u1*ow, &changed)
+		setBufferValue(buffer, 33, 1*ow, &changed)
+		setBufferValue(buffer, 34, ow, &changed)
 		setBufferValue(buffer, 35, tint, &changed)
 
 	default:
@@ -410,6 +529,16 @@ func (s *viewShader) Draw(ren *common.RenderComponent, space *common.SpaceCompon
 
 	switch d := ren.Drawable.(type) {
 	case Wall:
+		if d.Tex != nil {
+			engo.Gl.ActiveTexture(engo.Gl.TEXTURE0)
+			engo.Gl.BindTexture(engo.Gl.TEXTURE_2D, d.Tex)
+			engo.Gl.Uniform1i(s.texSampler, 0)
+			engo.Gl.Uniform1f(s.useTextureLoc, 1.0)
+		} else {
+			engo.Gl.Uniform1f(s.useTextureLoc, 0.0)
+		}
+		engo.Gl.DrawArrays(engo.Gl.TRIANGLES, 0, 6)
+	case Billboard:
 		if d.Tex != nil {
 			engo.Gl.ActiveTexture(engo.Gl.TEXTURE0)
 			engo.Gl.BindTexture(engo.Gl.TEXTURE_2D, d.Tex)
