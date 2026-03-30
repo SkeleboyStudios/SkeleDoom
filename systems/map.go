@@ -9,10 +9,21 @@ import (
 	"github.com/SkeleboyStudios/SkeleDoom/shaders"
 )
 
-// MapWallOffsetX and MapWallOffsetY are the offsets added to wall/item world
-// positions to place them in minimap space. Set by MapSystem.New() and read
-// by ItemSystem when creating minimap dots.
-var MapWallOffsetX, MapWallOffsetY float32
+const (
+	// MapWallOffsetX and MapWallOffsetY convert a wall endpoint from wall
+	// world-space (as defined in the scene) to minimap screen-space.
+	// They equal (boundingBox.Position.X + 29, boundingBox.Position.Y + 40).
+	MapWallOffsetX float32 = 39
+	MapWallOffsetY float32 = 253
+
+	// MapPlayerSpawnOffsetX and MapPlayerSpawnOffsetY are the values that
+	// MapSystem adds to a freshly-spawned player's SpaceComponent.Position.
+	// Subtract these from SpaceComponent.Position to recover the player's
+	// coordinates in wall world-space (the same space as wall endpoints).
+	// They equal (boundingBox.Position.X + 121.5, boundingBox.Position.Y + 75).
+	MapPlayerSpawnOffsetX float32 = 131.5
+	MapPlayerSpawnOffsetY float32 = 288
+)
 
 type NotMapComponent struct{}
 
@@ -134,8 +145,8 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 	if o, ok := i.(PlayerMapAble); ok {
 		s.player.BasicEntity = o.GetBasicEntity()
 		s.player.SpaceComponent = o.GetSpaceComponent()
-		s.player.Position.X += s.boundingbox.Position.X + 121.5
-		s.player.Position.Y += s.boundingbox.Position.Y + 75
+		s.player.Position.X += MapPlayerSpawnOffsetX
+		s.player.Position.Y += MapPlayerSpawnOffsetY
 		s.player.Width = 5
 		s.player.Height = 10
 		s.player.RenderComponent = &common.RenderComponent{
@@ -145,16 +156,19 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 		}
 		//s.player.Hidden = true
 		s.player.SetShader(shaders.MinimapShader)
-		s.player.CollisionComponent = &common.CollisionComponent{Main: CollisionGroupPlaya}
+		s.player.CollisionComponent = &common.CollisionComponent{
+			Main:  CollisionGroupPlaya,
+			Group: CollisionGroupWall | CollisionGroupLava | CollisionGroupDoor | CollisionGroupInterest,
+		}
 		s.w.AddEntity(&s.player)
 	}
 	if o, ok := i.(WallMapAble); ok {
 		wa := mapWallEntity{BasicEntity: o.GetBasicEntity()}
 		wall := o.GetWallMapComponent().Wall
-		wall.P1.X += s.boundingbox.Position.X + 29
-		wall.P2.X += s.boundingbox.Position.X + 29
-		wall.P1.Y += s.boundingbox.Position.Y + 40
-		wall.P2.Y += s.boundingbox.Position.Y + 40
+		wall.P1.X += MapWallOffsetX
+		wall.P2.X += MapWallOffsetX
+		wall.P1.Y += MapWallOffsetY
+		wall.P2.Y += MapWallOffsetY
 		wa.SpaceComponent = &common.SpaceComponent{
 			Position: wall.P1,
 			Width:    5,
@@ -182,7 +196,10 @@ func (s *MapSystem) AddByInterface(i ecs.Identifier) {
 			StartZIndex: 6,
 		}
 		wa.SetShader(shaders.MinimapShader)
-		wa.CollisionComponent = &common.CollisionComponent{Group: CollisionGroupPlaya}
+		wa.CollisionComponent = &common.CollisionComponent{
+			Main:  0,
+			Group: CollisionGroupPlaya,
+		}
 		//wa.Hidden = true
 		s.w.AddEntity(&wa)
 		s.walls = append(s.walls, wa)

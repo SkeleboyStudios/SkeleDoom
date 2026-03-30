@@ -30,6 +30,13 @@ type player struct {
 	systems.ViewPlayerComponent
 }
 
+type lavaZone struct {
+	ecs.BasicEntity
+
+	common.SpaceComponent
+	common.CollisionComponent
+	systems.LavaZoneComponent
+}
 // item is a pickupable world object. It is excluded from the MapSystem and
 // ViewSystem (which handle walls) via NotMapComponent and NotViewComponent;
 // the ItemSystem creates and owns the 3D billboard and minimap dot instead.

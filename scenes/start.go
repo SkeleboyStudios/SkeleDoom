@@ -27,6 +27,9 @@ func (s *StartScene) Preload() {
 	engo.Input.RegisterButton("down", engo.KeyS, engo.KeyArrowDown)
 	engo.Input.RegisterButton("left", engo.KeyA, engo.KeyArrowLeft)
 	engo.Input.RegisterButton("right", engo.KeyD, engo.KeyArrowRight)
+	engo.Input.RegisterButton("sprint", engo.KeyLeftShift, engo.KeyRightShift)
+	engo.Input.RegisterButton("crouch", engo.KeyLeftControl, engo.KeyRightControl)
+	engo.Input.RegisterButton("jump", engo.KeySpace)
 	engo.Input.RegisterAxis("hori", engo.NewAxisMouse(engo.AxisMouseHori))
 }
 
@@ -45,7 +48,7 @@ func (s *StartScene) Setup(u engo.Updater) {
 
 	var collisionable *common.Collisionable
 	var notcollisionable *common.NotCollisionable
-	w.AddSystemInterface(&common.CollisionSystem{Solids: systems.CollisionGroupPlaya}, collisionable, notcollisionable)
+	w.AddSystemInterface(&common.CollisionSystem{Solids: systems.CollisionGroupPlaya | systems.CollisionGroupWall}, collisionable, notcollisionable)
 
 	var playermapable *systems.PlayerMapAble
 	var wallmapable *systems.WallMapAble
@@ -63,6 +66,10 @@ func (s *StartScene) Setup(u engo.Updater) {
 
 	var controlable *systems.ControlAble
 	w.AddSystemInterface(&systems.ControlSystem{}, controlable, nil)
+
+	var lavaplayerable *systems.LavaPlayerAble
+	var lavazonable *systems.LavaZoneAble
+	w.AddSystemInterface(&systems.LavaSystem{}, []any{lavaplayerable, lavazonable}, nil)
 
 	p := player{BasicEntity: ecs.NewBasic()}
 	p.Speed = 150
@@ -86,6 +93,26 @@ func (s *StartScene) Setup(u engo.Updater) {
 	addWall(engo.Point{X: 150, Y: 50}, engo.Point{X: 250, Y: -25}, brickTex)
 	addWall(engo.Point{X: 150, Y: 50}, engo.Point{X: 150, Y: -25}, brickTex)
 
+	// addZone places a lava damage zone.  X/Y/W/H are in wall world-space
+	// (same coordinate system as wall endpoints above).
+	addZone := func(x, y, zw, zh float32, c color.RGBA, dps float32) {
+		e := lavaZone{BasicEntity: ecs.NewBasic()}
+		e.SpaceComponent.Position.X = x
+		e.SpaceComponent.Position.Y = y
+		e.SpaceComponent.Width = zw
+		e.SpaceComponent.Height = zh
+		e.LavaZoneComponent.Color = c
+		e.LavaZoneComponent.DPS = dps
+		w.AddEntity(&e)
+	}
+
+	// Orange lava pool along the first wall (low DPS — just a hazard to dodge).
+	addZone(0, 0, 75, 30,
+		color.RGBA{0xFF, 0x66, 0x00, 0xCC}, 8)
+
+	// Deep-red lava pit near the corner walls (higher DPS — punishing).
+	addZone(155, -20, 45, 45,
+		color.RGBA{0xCC, 0x11, 0x00, 0xCC}, 20)
 	// Generate the potion texture (must be after GL context is ready).
 	potionTex := shaders.CreatePotionTexture(64)
 
