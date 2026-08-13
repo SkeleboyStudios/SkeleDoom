@@ -40,6 +40,9 @@ const (
 	// Values are kept small so Height never goes negative (NormalHeight ≈ 10).
 	jumpInitVel float32 = 60  // initial speed at which Height decreases (units/sec)
 	gravity     float32 = 250 // rate at which Height is restored (units/sec²)
+
+	// Shooting mechanics.
+	shootCooldown float32 = 0.25 // minimum time between shots (seconds)
 )
 
 // ControlComponent holds movement parameters and runtime state for a
@@ -66,6 +69,8 @@ type ControlComponent struct {
 	exhausted    bool    // true when stamina hit 0; cleared when Stamina >= staminaResumeAt
 	isJumping    bool    // true while the player is airborne
 	jumpVelocity float32 // current velocity magnitude; positive decreases Height (view goes up)
+	shootTimer   float32 // time remaining until next shot is allowed (seconds)
+	IsShooting   bool    // true during the current frame if player shot
 
 	velocity engo.Point // current horizontal movement vector (world-units/frame)
 }
@@ -237,6 +242,18 @@ func (s *ControlSystem) Update(dt float32) {
 			// Exhaustion only clears once stamina is sufficiently recovered.
 			if entity.exhausted && entity.Stamina >= staminaResumeAt {
 				entity.exhausted = false
+			}
+		}
+
+		// ── Shooting ──────────────────────────────────────────────────────
+		entity.IsShooting = false
+		if entity.shootTimer > 0 {
+			entity.shootTimer -= dt
+		}
+		if engo.Input.Mouse.Action == engo.Press && engo.Input.Mouse.Button == engo.MouseButtonLeft {
+			if entity.shootTimer <= 0 {
+				entity.IsShooting = true
+				entity.shootTimer = shootCooldown
 			}
 		}
 

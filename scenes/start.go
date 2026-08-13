@@ -20,7 +20,7 @@ func (s *StartScene) Type() string { return StartSceneTypeString }
 func (s *StartScene) Preload() {
 	engo.Files.Load("ui/statsborder.png")
 	engo.Files.Load("ui/bomb.png")
-	engo.Files.Load("ui/hands.png")
+	engo.Files.Load("ui/guns/pistol.png")
 	common.AddShader(shaders.ViewShader)
 	common.AddShader(shaders.MinimapShader)
 	engo.Input.RegisterButton("up", engo.KeyW, engo.KeyArrowUp)
@@ -71,6 +71,15 @@ func (s *StartScene) Setup(u engo.Updater) {
 	var lavazonable *systems.LavaZoneAble
 	w.AddSystemInterface(&systems.LavaSystem{}, []any{lavaplayerable, lavazonable}, nil)
 
+	var projectileplayerable *systems.ViewPlayerAble
+	var projectileable *systems.ProjectileAble
+	projectileSystem := &systems.ProjectileSystem{}
+	w.AddSystemInterface(projectileSystem, []any{projectileplayerable, projectileable}, nil)
+
+	var shootingcontrolable *systems.ControlAble
+	shootingSystem := &systems.ShootingSystem{}
+	w.AddSystemInterface(shootingSystem, shootingcontrolable, nil)
+
 	p := player{BasicEntity: ecs.NewBasic()}
 	p.Speed = 150
 	p.RotSpeed = 25
@@ -113,8 +122,14 @@ func (s *StartScene) Setup(u engo.Updater) {
 	// Deep-red lava pit near the corner walls (higher DPS — punishing).
 	addZone(155, -20, 45, 45,
 		color.RGBA{0xCC, 0x11, 0x00, 0xCC}, 20)
-	// Generate the potion texture (must be after GL context is ready).
+
+	// Generate textures (must be after GL context is ready).
 	potionTex := shaders.CreatePotionTexture(64)
+	projectileTex := shaders.CreateProjectileTexture(32)
+
+	// Link shooting system to projectile system and set texture
+	shootingSystem.SetProjectileSystem(projectileSystem)
+	shootingSystem.SetProjectileTexture(projectileTex)
 
 	// addItem places a pickupable potion at the given wall-space position.
 	addItem := func(pos engo.Point, effect systems.ItemEffect) {

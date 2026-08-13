@@ -37,6 +37,7 @@ type ViewPlayerAble interface {
 	common.SpaceFace
 
 	ViewPlayerFace
+	ControlFace // Added to access shooting state
 }
 
 type viewPlayerEntity struct {
@@ -46,13 +47,18 @@ type viewPlayerEntity struct {
 		ecs.BasicEntity
 		common.RenderComponent
 		common.SpaceComponent
-		//common.AnimationComponent
+		common.AnimationComponent
 	}
 
 	*common.SpaceComponent
+	*ControlComponent // Added to check shooting state
 
 	*ViewPlayerComponent
 	*NotViewComponent
+
+	// Weapon state
+	weaponSpritesheet *common.Spritesheet // All 8 frames from the sprite sheet
+	isUsing           bool                // True during firing animation
 }
 
 type ViewWallComponent struct {
@@ -108,15 +114,46 @@ func (s *ViewSystem) AddByInterface(i ecs.Identifier) {
 	if o, ok := i.(ViewPlayerAble); ok {
 		s.player.BasicEntity = o.GetBasicEntity()
 		s.player.ViewPlayerComponent = o.GetViewPlayerComponent()
-		tex, _ := common.LoadedSprite("ui/hands.png")
-		s.player.hands.BasicEntity = ecs.NewBasic()
-		s.player.hands.RenderComponent = common.RenderComponent{Drawable: tex}
-		s.player.hands.Scale = engo.Point{X: 2, Y: 2}
-		s.player.hands.SetShader(common.HUDShader)
-		s.player.hands.Hidden = true
+		s.player.ControlComponent = o.GetControlComponent()
+
+		// Load the pistol sprite sheet (8 frames in a horizontal strip)
+		// The sprite sheet should be 8 cells wide, 1 cell tall
+		tex, err := common.LoadedSprite("ui/guns/pistol.png")
+		if err != nil {
+			println("Warning: failed to load pistol texture:", err)
+		}
+
+		if tex != nil {
+			// Get the full texture dimensions and calculate frame size
+			fullWidth := tex.Width()
+			fullHeight := tex.Height()
+			cellWidth := int(fullWidth / 4)   // 4 frames horizontally
+			cellHeight := int(fullHeight / 2) // 2 frame vertically
+
+			// Create a spritesheet from the loaded texture
+			s.player.weaponSpritesheet = common.NewSpritesheetFromFile("ui/guns/pistol.png", cellWidth, cellHeight)
+			s.player.isUsing = false
+
+			s.player.hands.AnimationComponent = common.NewAnimationComponent(s.player.weaponSpritesheet.Drawables(), 0.1)
+			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "idle", Frames: []int{0}})
+			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "shoot", Frames: []int{1, 2}})
+			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "busy", Frames: []int{3}})
+			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "reload", Frames: []int{4, 5, 6, 7}})
+
+			s.player.hands.BasicEntity = ecs.NewBasic()
+			s.player.hands.RenderComponent = common.RenderComponent{
+				Drawable: s.player.weaponSpritesheet.Cell(0), // Start with idle frame
+			}
+			s.player.hands.Scale = engo.Point{X: 2, Y: 2}
+			s.player.hands.Position = engo.Point{X: 220, Y: 180}
+			s.player.hands.SetShader(common.HUDShader)
+			s.player.hands.Hidden = false
+			s.w.AddEntity(&s.player.hands)
+		} else {
+			println("Hands will not be displayed due to missing texture")
+		}
 		s.player.SpaceComponent = o.GetSpaceComponent()
 		shaders.ViewShader.AddPlayer(o.GetSpaceComponent())
-		s.w.AddEntity(&s.player.hands)
 	}
 	if o, ok := i.(ViewWallAble); ok {
 		wa := o.GetWallMapComponent().Wall

@@ -268,3 +268,72 @@ func generatePotionImage(size int) *image.RGBA {
 
 	return img
 }
+
+// CreateProjectileTexture generates a fiery projectile texture and uploads it
+// to the GPU. size should be a power of two (e.g. 32, 64).
+// Must be called after the OpenGL context is initialised (i.e. from Setup).
+func CreateProjectileTexture(size int) *gl.Texture {
+	img := generateProjectileImage(size)
+	return uploadRGBATexture(img)
+}
+
+// generateProjectileImage produces an *image.RGBA with a glowing energy ball.
+func generateProjectileImage(size int) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+
+	// Clear to fully transparent.
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			img.SetRGBA(x, y, color.RGBA{})
+		}
+	}
+
+	cx := float64(size) / 2.0
+	cy := float64(size) / 2.0
+	rad := float64(size) / 2.2
+
+	// Create a radial gradient from bright center to darker edge
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			px, py := float64(x)+0.5, float64(y)+0.5
+			dx := px - cx
+			dy := py - cy
+			dist := math.Sqrt(dx*dx + dy*dy)
+
+			if dist > rad {
+				continue // outside the sphere
+			}
+
+			// Normalized distance from center (0 = center, 1 = edge)
+			t := dist / rad
+
+			// Bright yellow-white core fading to orange-red edges
+			var r, g, b uint8
+			var a uint8 = 255
+
+			if t < 0.3 {
+				// Core: bright yellow-white
+				r = 255
+				g = 255
+				b = 200
+			} else if t < 0.6 {
+				// Mid: orange
+				mix := (t - 0.3) / 0.3
+				r = 255
+				g = uint8(float64(255) - mix*100)
+				b = uint8(float64(200) - mix*150)
+			} else {
+				// Edge: red fading out
+				mix := (t - 0.6) / 0.4
+				r = uint8(float64(255) - mix*55)
+				g = uint8(float64(155) - mix*155)
+				b = uint8(float64(50) - mix*50)
+				a = uint8(float64(255) * (1 - mix*0.7)) // fade alpha at edges
+			}
+
+			img.SetRGBA(x, y, color.RGBA{R: r, G: g, B: b, A: a})
+		}
+	}
+
+	return img
+}
