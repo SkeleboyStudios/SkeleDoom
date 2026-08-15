@@ -30,6 +30,8 @@ func (s *StartScene) Preload() {
 	engo.Input.RegisterButton("sprint", engo.KeyLeftShift, engo.KeyRightShift)
 	engo.Input.RegisterButton("crouch", engo.KeyLeftControl, engo.KeyRightControl)
 	engo.Input.RegisterButton("jump", engo.KeySpace)
+	engo.Input.RegisterButton("reload", engo.KeyR)
+	engo.Input.RegisterButton("use", engo.KeyE)
 	engo.Input.RegisterAxis("hori", engo.NewAxisMouse(engo.AxisMouseHori))
 }
 
@@ -76,14 +78,19 @@ func (s *StartScene) Setup(u engo.Updater) {
 	projectileSystem := &systems.ProjectileSystem{}
 	w.AddSystemInterface(projectileSystem, []any{projectileplayerable, projectileable}, nil)
 
-	var shootingcontrolable *systems.ControlAble
-	shootingSystem := &systems.ShootingSystem{}
-	w.AddSystemInterface(shootingSystem, shootingcontrolable, nil)
+	var archeryable *systems.ArcheryAble
+	archerySystem := &systems.ArcherySystem{}
+	w.AddSystemInterface(archerySystem, archeryable, nil)
 
 	p := player{BasicEntity: ecs.NewBasic()}
 	p.Speed = 150
 	p.RotSpeed = 25
 	p.Height = 20
+	p.Ammo.Cap = 12
+	p.Ammo.Loaded = 8
+	p.Ammo.ReloadTime = 5.5
+	p.Ammo.TimeBtwnShots = 1
+	p.Ammo.ProjectileTex = shaders.CreateProjectileTexture(32)
 	w.AddEntity(&p)
 
 	// Generate a single brick texture shared by all walls.
@@ -125,11 +132,9 @@ func (s *StartScene) Setup(u engo.Updater) {
 
 	// Generate textures (must be after GL context is ready).
 	potionTex := shaders.CreatePotionTexture(64)
-	projectileTex := shaders.CreateProjectileTexture(32)
 
-	// Link shooting system to projectile system and set texture
-	shootingSystem.SetProjectileSystem(projectileSystem)
-	shootingSystem.SetProjectileTexture(projectileTex)
+	// Link shooting system to projectile system
+	archerySystem.SetProjectileSystem(projectileSystem)
 
 	// addItem places a pickupable potion at the given wall-space position.
 	addItem := func(pos engo.Point, effect systems.ItemEffect) {

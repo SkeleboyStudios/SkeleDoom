@@ -25,6 +25,8 @@ type player struct {
 	ecs.BasicEntity
 
 	common.SpaceComponent
+	common.AnimationComponent
+	systems.ArcheryComponent
 	systems.PlayerMapComponent
 	systems.ControlComponent
 	systems.ViewPlayerComponent

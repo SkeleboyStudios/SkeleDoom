@@ -69,8 +69,6 @@ type ControlComponent struct {
 	exhausted    bool    // true when stamina hit 0; cleared when Stamina >= staminaResumeAt
 	isJumping    bool    // true while the player is airborne
 	jumpVelocity float32 // current velocity magnitude; positive decreases Height (view goes up)
-	shootTimer   float32 // time remaining until next shot is allowed (seconds)
-	IsShooting   bool    // true during the current frame if player shot
 
 	velocity engo.Point // current horizontal movement vector (world-units/frame)
 }
@@ -87,12 +85,14 @@ type ControlAble interface {
 	common.BasicFace
 	ControlFace
 	common.SpaceFace
+	ArcheryAble
 }
 
 type controlEntity struct {
 	*ecs.BasicEntity
 	*ControlComponent
 	*common.SpaceComponent
+	*ArcheryComponent
 }
 
 // hudBar is a minimal HUD entity used internally by ControlSystem for the
@@ -183,6 +183,7 @@ func (s *ControlSystem) Add(
 	basic *ecs.BasicEntity,
 	control *ControlComponent,
 	space *common.SpaceComponent,
+	archery *ArcheryComponent,
 ) {
 	// Default health and stamina to full when the caller hasn't pre-set them.
 	if control.Health == 0 {
@@ -191,7 +192,7 @@ func (s *ControlSystem) Add(
 	if control.Stamina == 0 {
 		control.Stamina = 100
 	}
-	s.entities = append(s.entities, controlEntity{basic, control, space})
+	s.entities = append(s.entities, controlEntity{basic, control, space, archery})
 }
 
 func (s *ControlSystem) AddByInterface(i ecs.Identifier) {
@@ -199,7 +200,7 @@ func (s *ControlSystem) AddByInterface(i ecs.Identifier) {
 	if !ok {
 		return
 	}
-	s.Add(o.GetBasicEntity(), o.GetControlComponent(), o.GetSpaceComponent())
+	s.Add(o.GetBasicEntity(), o.GetControlComponent(), o.GetSpaceComponent(), o.GetArcheryComponent())
 }
 
 func (s *ControlSystem) Remove(basic ecs.BasicEntity) {
@@ -246,16 +247,10 @@ func (s *ControlSystem) Update(dt float32) {
 		}
 
 		// ── Shooting ──────────────────────────────────────────────────────
-		entity.IsShooting = false
-		if entity.shootTimer > 0 {
-			entity.shootTimer -= dt
-		}
-		if engo.Input.Mouse.Action == engo.Press && engo.Input.Mouse.Button == engo.MouseButtonLeft {
-			if entity.shootTimer <= 0 {
-				entity.IsShooting = true
-				entity.shootTimer = shootCooldown
-			}
-		}
+		entity.IsShooting = engo.Input.Mouse.Action == engo.Press && engo.Input.Mouse.Button == engo.MouseButtonLeft
+
+		// --- Reloading -----------------------------------------------------
+		entity.IsReloading = engo.Input.Button("reload").JustPressed()
 
 		// ── Crouch ───────────────────────────────────────────────────────
 		crouching := engo.Input.Button("crouch").Down()

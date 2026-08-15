@@ -36,6 +36,7 @@ type ViewPlayerAble interface {
 	common.BasicFace
 	common.SpaceFace
 
+	ArcheryFace
 	ViewPlayerFace
 	ControlFace // Added to access shooting state
 }
@@ -43,22 +44,22 @@ type ViewPlayerAble interface {
 type viewPlayerEntity struct {
 	*ecs.BasicEntity
 
-	hands struct {
+	Hands struct {
 		ecs.BasicEntity
 		common.RenderComponent
 		common.SpaceComponent
 		common.AnimationComponent
+
+		weaponSpritesheet *common.Spritesheet
 	}
 
 	*common.SpaceComponent
+	*common.AnimationComponent
 	*ControlComponent // Added to check shooting state
+	*ArcheryComponent
 
 	*ViewPlayerComponent
 	*NotViewComponent
-
-	// Weapon state
-	weaponSpritesheet *common.Spritesheet // All 8 frames from the sprite sheet
-	isUsing           bool                // True during firing animation
 }
 
 type ViewWallComponent struct {
@@ -131,24 +132,25 @@ func (s *ViewSystem) AddByInterface(i ecs.Identifier) {
 			cellHeight := int(fullHeight / 2) // 2 frame vertically
 
 			// Create a spritesheet from the loaded texture
-			s.player.weaponSpritesheet = common.NewSpritesheetFromFile("ui/guns/pistol.png", cellWidth, cellHeight)
-			s.player.isUsing = false
+			s.player.Hands.weaponSpritesheet = common.NewSpritesheetFromFile("ui/guns/pistol.png", cellWidth, cellHeight)
 
-			s.player.hands.AnimationComponent = common.NewAnimationComponent(s.player.weaponSpritesheet.Drawables(), 0.1)
-			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "idle", Frames: []int{0}})
-			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "shoot", Frames: []int{1, 2}})
-			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "busy", Frames: []int{3}})
-			s.player.hands.AnimationComponent.AddAnimation(&common.Animation{Name: "reload", Frames: []int{4, 5, 6, 7}})
+			s.player.Hands.AnimationComponent = common.NewAnimationComponent(s.player.Hands.weaponSpritesheet.Drawables(), 0.1)
+			s.player.Hands.AnimationComponent.AddAnimation(&common.Animation{Name: "idle", Frames: []int{0}})
+			s.player.Hands.AnimationComponent.AddAnimation(&common.Animation{Name: "shoot", Frames: []int{1, 2}})
+			s.player.Hands.AnimationComponent.AddAnimation(&common.Animation{Name: "busy", Frames: []int{3}})
+			s.player.Hands.AnimationComponent.AddAnimation(&common.Animation{Name: "reload", Frames: []int{4, 5, 6, 7}})
+			s.player.Hands.SelectAnimationByName("idle")
 
-			s.player.hands.BasicEntity = ecs.NewBasic()
-			s.player.hands.RenderComponent = common.RenderComponent{
-				Drawable: s.player.weaponSpritesheet.Cell(0), // Start with idle frame
+			s.player.Hands.BasicEntity = ecs.NewBasic()
+			s.player.Hands.RenderComponent = common.RenderComponent{
+				Drawable: s.player.Hands.weaponSpritesheet.Cell(0), // Start with idle frame
 			}
-			s.player.hands.Scale = engo.Point{X: 2, Y: 2}
-			s.player.hands.Position = engo.Point{X: 220, Y: 180}
-			s.player.hands.SetShader(common.HUDShader)
-			s.player.hands.Hidden = false
-			s.w.AddEntity(&s.player.hands)
+			s.player.Hands.Scale = engo.Point{X: 8, Y: 8}
+			s.player.Hands.Position = engo.Point{X: 400, Y: 106}
+			s.player.Hands.SetShader(common.HUDShader)
+			s.player.Hands.Hidden = false
+			s.player.AnimationComponent = &s.player.Hands.AnimationComponent
+			s.w.AddEntity(&s.player.Hands)
 		} else {
 			println("Hands will not be displayed due to missing texture")
 		}
@@ -243,7 +245,7 @@ func (s *ViewSystem) Update(dt float32) {
 			dy1 = near
 		}
 		// Painter-style ordering: farther walls first, nearer walls last
-		depth := (dy0+dy1)*0.5 + 50 // offset to ensure walls render behind player hands
+		depth := (dy0+dy1)*0.5 + 50 // offset to ensure walls render behind player Hands
 		e.wall.SetZIndex(-depth)
 	}
 }
